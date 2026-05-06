@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ecommerce RAG Chat</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        margin: 0;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: #1f2937;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .container {
+        width: 90%;
+        max-width: 600px;
+        height: 90vh;
+        background: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      .header {
+        padding: 16px 20px;
+        border-bottom: 1px solid #e5e7eb;
+        background: #f9fafb;
+      }
+
+      .header h1 {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 600;
+      }
+
+      .header p {
+        margin: 4px 0 0 0;
+        font-size: 0.85rem;
+        color: #6b7280;
+      }
+
+      .messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .message {
+        display: flex;
+        gap: 8px;
+        animation: slideIn 0.3s ease-out;
+      }
+
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .message.user {
+        justify-content: flex-end;
+      }
+
+      .message-bubble {
+        max-width: 80%;
+        padding: 12px 16px;
+        border-radius: 12px;
+        word-wrap: break-word;
+        line-height: 1.4;
+      }
+
+      .message.user .message-bubble {
+        background: #2563eb;
+        color: #ffffff;
+        border-radius: 18px 18px 4px 18px;
+      }
+
+      .message.assistant .message-bubble {
+        background: #e5e7eb;
+        color: #1f2937;
+        border-radius: 18px 18px 18px 4px;
+      }
+
+      .message.assistant .content {
+        font-size: 0.95rem;
+      }
+
+      .products-list {
+        margin-top: 8px;
+        font-size: 0.9rem;
+      }
+
+      .product-item {
+        background: rgba(255, 255, 255, 0.2);
+        padding: 8px 12px;
+        border-radius: 8px;
+        margin-top: 6px;
+      }
+
+      .message.assistant .product-item {
+        background: #dbeafe;
+      }
+
+      .loading-spinner {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border: 2px solid #d1d5db;
+        border-top-color: #2563eb;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .input-area {
+        border-top: 1px solid #e5e7eb;
+        padding: 12px 16px;
+        background: #f9fafb;
+      }
+
+      .input-row {
+        display: flex;
+        gap: 8px;
+      }
+
+      input[type="text"] {
+        flex: 1;
+        padding: 12px 14px;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        font-family: inherit;
+      }
+
+      input[type="text"]:focus {
+        outline: none;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+      }
+
+      button {
+        padding: 12px 18px;
+        border: none;
+        background: #2563eb;
+        color: #ffffff;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 500;
+        transition: background 0.2s;
+      }
+
+      button:hover:not(:disabled) {
+        background: #1d4ed8;
+      }
+
+      button:disabled {
+        background: #94a3b8;
+        cursor: not-allowed;
+      }
+
+      .empty-state {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        color: #9ca3af;
+        text-align: center;
+        padding: 40px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>🛍️ Ecommerce Assistant</h1>
+        <p>Try: "I need running shoes under $100"</p>
+      </div>
+
+      <div class="messages" id="messages">
+        <div class="empty-state">
+          <div>
+            <p style="margin: 0; font-size: 1.1rem; color: #6b7280">Start a conversation</p>
+            <p style="margin: 8px 0 0 0; font-size: 0.9rem; color: #9ca3af">Ask about products, prices, or features</p>
+          </div>
+        </div>
+      </div>
+
+      <form id="chat-form" class="input-area">
+        <div class="input-row">
+          <input id="message" type="text" placeholder="Ask for products..." required />
+          <button id="send-button" type="submit">Send</button>
+        </div>
+      </form>
+    </div>
+
+    <script>
+      const form = document.getElementById("chat-form");
+      const messageInput = document.getElementById("message");
+      const sendButton = document.getElementById("send-button");
+      const messagesContainer = document.getElementById("messages");
+
+      const clearEmpty = () => {
+        const emptyState = messagesContainer.querySelector(".empty-state");
+        if (emptyState) emptyState.remove();
+      };
+
+      const addMessage = (text, isUser = false, products = [], citations = []) => {
+        clearEmpty();
+
+        const messageDiv = document.createElement("div");
+        messageDiv.className = `message ${isUser ? "user" : "assistant"}`;
+
+        const bubble = document.createElement("div");
+        bubble.className = "message-bubble";
+
+        if (isUser) {
+          bubble.textContent = text;
+        } else {
+          const content = document.createElement("div");
+          content.className = "content";
+          content.textContent = text;
+          bubble.appendChild(content);
+
+          if (products && products.length > 0) {
+            const productsList = document.createElement("div");
+            productsList.className = "products-list";
+            products.forEach((p) => {
+              const item = document.createElement("div");
+              item.className = "product-item";
+              item.textContent = `${p.title} (${p.brand}) - $${p.price.toFixed(2)}`;
+              productsList.appendChild(item);
+            });
+            bubble.appendChild(productsList);
+          }
+        }
+
+        messageDiv.appendChild(bubble);
+        messagesContainer.appendChild(messageDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      };
+
+      const addLoadingMessage = () => {
+        clearEmpty();
+
+        const messageDiv = document.createElement("div");
+        messageDiv.className = "message assistant";
+        messageDiv.id = "loading-message";
+
+        const bubble = document.createElement("div");
+        bubble.className = "message-bubble";
+
+        const spinner = document.createElement("div");
+        spinner.className = "loading-spinner";
+        bubble.appendChild(spinner);
+
+        const text = document.createElement("span");
+        text.textContent = " Thinking...";
+        text.style.marginLeft = "8px";
+        bubble.appendChild(text);
+
+        messageDiv.appendChild(bubble);
+        messagesContainer.appendChild(messageDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      };
+
+      const removeLoadingMessage = () => {
+        const loading = document.getElementById("loading-message");
+        if (loading) loading.remove();
+      };
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const message = messageInput.value.trim();
+        if (!message) return;
+
+        addMessage(message, true);
+        messageInput.value = "";
+        sendButton.disabled = true;
+
+        addLoadingMessage();
+
+        try {
+          const response = await fetch("/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message })
+          });
+
+          if (!response.ok) {
+            throw new Error("Request failed with status " + response.status);
+          }
+
+          const data = await response.json();
+          removeLoadingMessage();
+
+          addMessage(
+            data.answer || "Sorry, I couldn't generate a response.",
+            false,
+            data.recommendedProducts || [],
+            data.citations || []
+          );
+        } catch (error) {
+          removeLoadingMessage();
+          addMessage("❌ " + (error.message || "Something went wrong."), false);
+        } finally {
+          sendButton.disabled = false;
+          messageInput.focus();
+        }
+      });
+
+      messageInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          form.dispatchEvent(new Event("submit"));
+        }
+      });
+
+      messageInput.focus();
+    </script>
+  </body>
+</html>
+
