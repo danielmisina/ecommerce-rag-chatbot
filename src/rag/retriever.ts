@@ -1,4 +1,7 @@
+import { Pool } from "pg";
 import { Product, RetrievedProduct } from "../types";
+import { getEmbedding } from "./embedder";
+import { getAllProducts } from "./ingest";
 
 export type RetrievalFilters = {
   maxPrice?: number;
@@ -78,30 +81,88 @@ const cosineSimilarity = (a: Map<string, number>, b: Map<string, number>): numbe
   return dot / (Math.sqrt(aNorm) * Math.sqrt(bNorm));
 };
 
-export const retrieveProducts = (
+const keywordFallback = async (
   message: string,
-  products: Product[],
-  topK = 3
-): { filters: RetrievalFilters; matches: RetrievedProduct[] } => {
-  const filters = parseFilters(message);
+  filters: RetrievalFilters,
+  pool: Pool,
+  topK: number
+): Promise<RetrievedProduct[]> => {
+  const products = await getAllProducts(pool);
   const queryVector = termCounts(tokenize(message));
 
-  const filtered = products.filter((product) => {
+  const filtered = products.filter((product: Product) => {
     if (filters.inStockOnly && !product.inStock) return false;
     if (typeof filters.maxPrice === "number" && product.price > filters.maxPrice) return false;
     if (filters.category && product.category !== filters.category) return false;
     return true;
   });
 
-  const matches = filtered
-    .map((product) => {
+  return filtered
+    .map((product: Product) => {
       const text = `${product.title} ${product.description} ${product.brand} ${product.category}`;
       const score = cosineSimilarity(queryVector, termCounts(tokenize(text)));
       return { product, score };
     })
     .sort((a, b) => b.score - a.score)
     .slice(0, topK);
-
-  return { filters, matches };
 };
 
+export const retrieveProducts = async (
+  message: string,
+  pool: Pool,
+  topK = 3
+): Promise<{ filters: RetrievalFilters; matches: RetrievedProduct[] }> => {
+  const filters = parseFilters(message);
+  const embedding = await getEmbedding(message);
+
+  if (embedding) {
+    const conditions: string[] = [];
+    const params: unknown[] = [`[${embedding.join(",")}]`];
+    let idx = 2;
+
+    if (filters.inStockOnly) conditions.push("in_stock = true");
+    if (typeof filters.maxPrice === "number") {
+      conditions.push(`price <= $${idx++}`);
+      params.push(filters.maxPrice);
+    }
+    if (filters.category) {
+      conditions.push(`category = $${idx++}`);
+      params.push(filters.category);
+    }
+    conditions.push("embedding IS NOT NULL");
+    params.push(topK);
+
+    const where = conditions.join(" AND ");
+    const sql = `
+      SELECT id, title, description, category, brand, price, currency, in_stock, rating,
+             1 - (embedding <=> $1) AS score
+      FROM products
+      WHERE ${where}
+      ORDER BY embedding <=> $1
+      LIMIT $${idx}
+    `;
+
+    const result = await pool.query(sql, params);
+
+    const matches: RetrievedProduct[] = result.rows.map((row) => ({
+      product: {
+        id: row.id as string,
+        title: row.title as string,
+        description: row.description as string,
+        category: row.category as string,
+        brand: row.brand as string,
+        price: Number(row.price),
+        currency: row.currency as string,
+        inStock: row.in_stock as boolean,
+        rating: Number(row.rating)
+      },
+      score: Number(row.score)
+    }));
+
+    return { filters, matches };
+  }
+
+  // No embedding available — keyword fallback
+  const matches = await keywordFallback(message, filters, pool, topK);
+  return { filters, matches };
+};

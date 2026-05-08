@@ -1,7 +1,9 @@
 import express from "express";
 import path from "node:path";
+import { Pool } from "pg";
 import { z } from "zod";
-import { loadProducts } from "./rag/ingest";
+import { pool as defaultPool } from "./db/client";
+import { ingestProducts } from "./rag/ingest";
 import { generateAnswer } from "./rag/generator";
 import { retrieveProducts } from "./rag/retriever";
 import { ChatResponse } from "./types";
@@ -11,7 +13,7 @@ const chatSchema = z.object({
   message: z.string().min(1)
 });
 
-export const createApp = () => {
+export const createApp = (pool: Pool = defaultPool) => {
   const app = express();
   app.use(express.json());
   const chatUiPath = path.resolve(process.cwd(), "public", "chat.html");
@@ -32,9 +34,9 @@ export const createApp = () => {
     res.json({ ok: true });
   });
 
-  app.post("/ingest", (_req, res) => {
-    const products = loadProducts();
-    res.json({ ok: true, count: products.length });
+  app.post("/ingest", async (_req, res) => {
+    const count = await ingestProducts(pool);
+    res.json({ ok: true, count });
   });
 
   app.post("/chat", async (req, res) => {
@@ -44,8 +46,7 @@ export const createApp = () => {
       return res.status(400).json({ error: "Invalid request payload" });
     }
 
-    const products = loadProducts();
-    const { filters, matches } = retrieveProducts(parsed.data.message, products, 3);
+    const { filters, matches } = await retrieveProducts(parsed.data.message, pool, 3);
     const answer = await generateAnswer(parsed.data.message, matches);
 
     const response: ChatResponse = {
@@ -64,4 +65,3 @@ export const createApp = () => {
 
   return app;
 };
-
