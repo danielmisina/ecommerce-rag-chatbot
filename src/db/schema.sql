@@ -13,6 +13,7 @@ CREATE TABLE products (
   in_stock    BOOLEAN      NOT NULL,
   rating      NUMERIC(3,1) NOT NULL,
   url         TEXT,
+  carbs_per_serving INTEGER,
   embedding   vector(1536)
 );
 

@@ -14,6 +14,7 @@ type ProductRow = {
   in_stock: boolean;
   rating: string;
   url: string | null;
+  carbs_per_serving: number | null;
 };
 
 const rowToProduct = (row: ProductRow): Product => ({
@@ -27,6 +28,7 @@ const rowToProduct = (row: ProductRow): Product => ({
   inStock: row.in_stock,
   rating: Number(row.rating),
   url: row.url ?? undefined,
+  carbsPerServing: row.carbs_per_serving ?? undefined,
 });
 
 export const ingestProducts = async (pool: Pool): Promise<number> => {
@@ -37,19 +39,20 @@ export const ingestProducts = async (pool: Pool): Promise<number> => {
     const embedding = await getEmbedding(text);
 
     await pool.query(
-      `INSERT INTO products (id, title, description, category, brand, price, currency, in_stock, rating, url, embedding)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      `INSERT INTO products (id, title, description, category, brand, price, currency, in_stock, rating, url, carbs_per_serving, embedding)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        ON CONFLICT (id) DO UPDATE SET
-         title       = EXCLUDED.title,
-         description = EXCLUDED.description,
-         category    = EXCLUDED.category,
-         brand       = EXCLUDED.brand,
-         price       = EXCLUDED.price,
-         currency    = EXCLUDED.currency,
-         in_stock    = EXCLUDED.in_stock,
-         rating      = EXCLUDED.rating,
-         url         = EXCLUDED.url,
-         embedding   = EXCLUDED.embedding`,
+         title             = EXCLUDED.title,
+         description       = EXCLUDED.description,
+         category          = EXCLUDED.category,
+         brand             = EXCLUDED.brand,
+         price             = EXCLUDED.price,
+         currency          = EXCLUDED.currency,
+         in_stock          = EXCLUDED.in_stock,
+         rating            = EXCLUDED.rating,
+         url               = EXCLUDED.url,
+         carbs_per_serving = EXCLUDED.carbs_per_serving,
+         embedding         = EXCLUDED.embedding`,
       [
         product.id,
         product.title,
@@ -61,6 +64,7 @@ export const ingestProducts = async (pool: Pool): Promise<number> => {
         product.inStock,
         product.rating,
         product.url ?? null,
+        product.carbsPerServing ?? null,
         embedding ? `[${embedding.join(",")}]` : null,
       ]
     );
@@ -71,7 +75,7 @@ export const ingestProducts = async (pool: Pool): Promise<number> => {
 
 export const getAllProducts = async (pool: Pool): Promise<Product[]> => {
   const result = await pool.query<ProductRow>(
-    `SELECT id, title, description, category, brand, price, currency, in_stock, rating, url FROM products`
+    `SELECT id, title, description, category, brand, price, currency, in_stock, rating, url, carbs_per_serving FROM products`
   );
   return result.rows.map(rowToProduct);
 };
