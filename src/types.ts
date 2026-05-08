@@ -12,6 +12,20 @@ export type Product = {
   carbsPerServing?: number;
 };
 
+export type DocumentChunk = {
+  id: string;
+  sourceId: string;
+  title: string;
+  chunkIndex: number;
+  body: string;
+  tags: string[];
+};
+
+export type RetrievedDocument = {
+  chunk: DocumentChunk;
+  score: number;
+};
+
 // ...existing code...
 
 export type RaceType = "sprint" | "olympic" | "70.3" | "ironman";
@@ -55,4 +69,5 @@ export type ChatResponse = {
     category?: string;
     inStockOnly: boolean;
   };
+  knowledgeChunks?: Array<{ id: string; title: string; score: number }>;
 };

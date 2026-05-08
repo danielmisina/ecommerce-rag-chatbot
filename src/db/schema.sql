@@ -1,5 +1,6 @@
 CREATE EXTENSION IF NOT EXISTS vector;
 
+DROP TABLE IF EXISTS documents;
 DROP TABLE IF EXISTS products;
 
 CREATE TABLE products (
@@ -20,3 +21,15 @@ CREATE TABLE products (
 CREATE INDEX IF NOT EXISTS products_embedding_idx
   ON products USING hnsw (embedding vector_cosine_ops);
 
+CREATE TABLE documents (
+  id          TEXT    PRIMARY KEY,
+  source_id   TEXT    NOT NULL,
+  title       TEXT    NOT NULL,
+  chunk_index INTEGER NOT NULL,
+  body        TEXT    NOT NULL,
+  tags        TEXT[],
+  embedding   vector(1536)
+);
+
+CREATE INDEX IF NOT EXISTS documents_embedding_idx
+  ON documents USING hnsw (embedding vector_cosine_ops);

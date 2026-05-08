@@ -3,9 +3,9 @@ import path from "node:path";
 import { Pool } from "pg";
 import { z } from "zod";
 import { pool as defaultPool } from "./db/client";
-import { ingestProducts } from "./rag/ingest";
+import { ingestProducts, ingestArticles } from "./rag/ingest";
 import { generateAnswer } from "./rag/generator";
-import { retrieveProducts } from "./rag/retriever";
+import { retrieveProducts, retrieveDocuments } from "./rag/retriever";
 import { calculateGels } from "./rag/calculator";
 import { ChatResponse } from "./types";
 
@@ -34,7 +34,13 @@ export const createApp = (pool: Pool = defaultPool) => {
     res.json({
       name: "ecommerce-rag-chatbot",
       ok: true,
-      endpoints: ["GET /health", "POST /ingest", "POST /chat", "POST /calculate/gels"]
+      endpoints: [
+        "GET /health",
+        "POST /ingest",
+        "POST /ingest/articles",
+        "POST /chat",
+        "POST /calculate/gels"
+      ]
     });
   });
 
@@ -51,6 +57,11 @@ export const createApp = (pool: Pool = defaultPool) => {
     res.json({ ok: true, count });
   });
 
+  app.post("/ingest/articles", async (_req, res) => {
+    const count = await ingestArticles(pool);
+    res.json({ ok: true, count });
+  });
+
   app.post("/chat", async (req, res) => {
     const parsed = chatSchema.safeParse(req.body);
 
@@ -58,8 +69,12 @@ export const createApp = (pool: Pool = defaultPool) => {
       return res.status(400).json({ error: "Invalid request payload" });
     }
 
-    const { filters, matches } = await retrieveProducts(parsed.data.message, pool, 3);
-    const answer = await generateAnswer(parsed.data.message, matches);
+    const [{ filters, matches }, docChunks] = await Promise.all([
+      retrieveProducts(parsed.data.message, pool, 3),
+      retrieveDocuments(parsed.data.message, pool, 3),
+    ]);
+
+    const answer = await generateAnswer(parsed.data.message, matches, docChunks);
 
     const response: ChatResponse = {
       answer,
@@ -69,7 +84,12 @@ export const createApp = (pool: Pool = defaultPool) => {
         title: match.product.title,
         score: Number(match.score.toFixed(3))
       })),
-      appliedFilters: filters
+      appliedFilters: filters,
+      knowledgeChunks: docChunks.map((d) => ({
+        id: d.chunk.id,
+        title: d.chunk.title,
+        score: Number(d.score.toFixed(3)),
+      })),
     };
 
     return res.json(response);

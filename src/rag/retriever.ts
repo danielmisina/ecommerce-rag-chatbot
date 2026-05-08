@@ -1,5 +1,5 @@
 import { Pool } from "pg";
-import { Product, RetrievedProduct } from "../types";
+import { Product, RetrievedProduct, RetrievedDocument } from "../types";
 import { getEmbedding } from "./embedder";
 import { getAllProducts } from "./ingest";
 
@@ -168,4 +168,59 @@ export const retrieveProducts = async (
   // No embedding available — keyword fallback
   const matches = await keywordFallback(message, filters, pool, topK);
   return { filters, matches };
+};
+
+export const retrieveDocuments = async (
+  message: string,
+  pool: Pool,
+  topK = 3
+): Promise<RetrievedDocument[]> => {
+  const embedding = await getEmbedding(message);
+
+  if (embedding) {
+    const sql = `
+      SELECT id, source_id, title, chunk_index, body, tags,
+             1 - (embedding <=> $1) AS score
+      FROM documents
+      WHERE embedding IS NOT NULL
+      ORDER BY embedding <=> $1
+      LIMIT $2
+    `;
+    const result = await pool.query(sql, [`[${embedding.join(",")}]`, topK]);
+    return result.rows.map((row) => ({
+      chunk: {
+        id: row.id as string,
+        sourceId: row.source_id as string,
+        title: row.title as string,
+        chunkIndex: Number(row.chunk_index),
+        body: row.body as string,
+        tags: (row.tags as string[]) ?? [],
+      },
+      score: Number(row.score),
+    }));
+  }
+
+  // Keyword fallback
+  const result = await pool.query(
+    "SELECT id, source_id, title, chunk_index, body, tags FROM documents"
+  );
+  const queryVector = termCounts(tokenize(message));
+
+  return result.rows
+    .map((row) => {
+      const body = (row.body as string) ?? "";
+      return {
+        chunk: {
+          id: row.id as string,
+          sourceId: row.source_id as string,
+          title: row.title as string,
+          chunkIndex: Number(row.chunk_index),
+          body,
+          tags: (row.tags as string[]) ?? [],
+        },
+        score: cosineSimilarity(queryVector, termCounts(tokenize(body))),
+      };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, topK);
 };

@@ -27,6 +27,10 @@ const { mockPool } = vi.hoisted(() => {
         // auto-select gel query
         return Promise.resolve({ rows: [mockGelRow] });
       }
+      if (upper.startsWith("SELECT") && upper.includes("DOCUMENTS")) {
+        // document retrieval — return empty rows in tests
+        return Promise.resolve({ rows: [] });
+      }
       if (upper.startsWith("SELECT")) {
         return Promise.resolve({ rows: mockRows });
       }
@@ -53,6 +57,7 @@ describe("RAG API", () => {
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
     expect(res.body.endpoints).toContain("POST /calculate/gels");
+    expect(res.body.endpoints).toContain("POST /ingest/articles");
   });
 
   it("serves browser chat UI", async () => {
@@ -76,6 +81,7 @@ describe("RAG API", () => {
     expect(res.body.recommendedProducts.length).toBeGreaterThan(0);
     expect(res.body.appliedFilters.maxPrice).toBe(200);
     expect(res.body.appliedFilters.category).toBe("run");
+    expect(Array.isArray(res.body.knowledgeChunks)).toBe(true);
   });
 
   it("ingests products and returns count", async () => {
@@ -83,6 +89,14 @@ describe("RAG API", () => {
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
     expect(res.body.count).toBe(27);
+  });
+
+  it("ingests articles and returns chunk count", async () => {
+    const res = await request(app).post("/ingest/articles");
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(typeof res.body.count).toBe("number");
+    expect(res.body.count).toBeGreaterThan(0);
   });
 
   it("calculates gels for a race type preset", async () => {

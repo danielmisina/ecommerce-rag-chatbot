@@ -1,7 +1,12 @@
+import fs from "node:fs";
+import path from "node:path";
 import { Pool } from "pg";
 import productsJson from "../data/products.json";
 import { Product } from "../types";
 import { getEmbedding } from "./embedder";
+import { chunkMarkdown } from "./chunker";
+
+const ARTICLES_DIR = path.resolve(__dirname, "../data/articles");
 
 type ProductRow = {
   id: string;
@@ -78,4 +83,47 @@ export const getAllProducts = async (pool: Pool): Promise<Product[]> => {
     `SELECT id, title, description, category, brand, price, currency, in_stock, rating, url, carbs_per_serving FROM products`
   );
   return result.rows.map(rowToProduct);
+};
+
+export const ingestArticles = async (pool: Pool): Promise<number> => {
+  const files = fs.readdirSync(ARTICLES_DIR).filter((f) => f.endsWith(".md"));
+  let totalChunks = 0;
+
+  for (const file of files) {
+    const sourceId = file.replace(".md", "");
+    const raw = fs.readFileSync(path.join(ARTICLES_DIR, file), "utf-8");
+
+    const titleMatch = raw.match(/^#\s+(.+)/m);
+    const title = titleMatch ? titleMatch[1].trim() : sourceId;
+    const tags = sourceId.split("-").filter((t) => t.length > 2);
+    const chunks = chunkMarkdown(raw);
+
+    for (const chunk of chunks) {
+      const id = `${sourceId}-${chunk.index}`;
+      const embedding = await getEmbedding(chunk.body);
+
+      await pool.query(
+        `INSERT INTO documents (id, source_id, title, chunk_index, body, tags, embedding)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (id) DO UPDATE SET
+           title       = EXCLUDED.title,
+           chunk_index = EXCLUDED.chunk_index,
+           body        = EXCLUDED.body,
+           tags        = EXCLUDED.tags,
+           embedding   = EXCLUDED.embedding`,
+        [
+          id,
+          sourceId,
+          title,
+          chunk.index,
+          chunk.body,
+          tags,
+          embedding ? `[${embedding.join(",")}]` : null,
+        ]
+      );
+      totalChunks++;
+    }
+  }
+
+  return totalChunks;
 };
