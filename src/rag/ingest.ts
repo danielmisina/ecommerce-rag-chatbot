@@ -13,6 +13,7 @@ type ProductRow = {
   currency: string;
   in_stock: boolean;
   rating: string;
+  url: string | null;
 };
 
 const rowToProduct = (row: ProductRow): Product => ({
@@ -25,6 +26,7 @@ const rowToProduct = (row: ProductRow): Product => ({
   currency: row.currency,
   inStock: row.in_stock,
   rating: Number(row.rating),
+  url: row.url ?? undefined,
 });
 
 export const ingestProducts = async (pool: Pool): Promise<number> => {
@@ -35,8 +37,8 @@ export const ingestProducts = async (pool: Pool): Promise<number> => {
     const embedding = await getEmbedding(text);
 
     await pool.query(
-      `INSERT INTO products (id, title, description, category, brand, price, currency, in_stock, rating, embedding)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      `INSERT INTO products (id, title, description, category, brand, price, currency, in_stock, rating, url, embedding)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        ON CONFLICT (id) DO UPDATE SET
          title       = EXCLUDED.title,
          description = EXCLUDED.description,
@@ -46,6 +48,7 @@ export const ingestProducts = async (pool: Pool): Promise<number> => {
          currency    = EXCLUDED.currency,
          in_stock    = EXCLUDED.in_stock,
          rating      = EXCLUDED.rating,
+         url         = EXCLUDED.url,
          embedding   = EXCLUDED.embedding`,
       [
         product.id,
@@ -57,6 +60,7 @@ export const ingestProducts = async (pool: Pool): Promise<number> => {
         product.currency,
         product.inStock,
         product.rating,
+        product.url ?? null,
         embedding ? `[${embedding.join(",")}]` : null,
       ]
     );
@@ -67,7 +71,7 @@ export const ingestProducts = async (pool: Pool): Promise<number> => {
 
 export const getAllProducts = async (pool: Pool): Promise<Product[]> => {
   const result = await pool.query<ProductRow>(
-    `SELECT id, title, description, category, brand, price, currency, in_stock, rating FROM products`
+    `SELECT id, title, description, category, brand, price, currency, in_stock, rating, url FROM products`
   );
   return result.rows.map(rowToProduct);
 };

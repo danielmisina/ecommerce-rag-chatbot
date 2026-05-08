@@ -12,6 +12,7 @@ CREATE TABLE products (
   currency    TEXT         NOT NULL DEFAULT 'USD',
   in_stock    BOOLEAN      NOT NULL,
   rating      NUMERIC(3,1) NOT NULL,
+  url         TEXT,
   embedding   vector(1536)
 );
 

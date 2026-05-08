@@ -140,7 +140,8 @@
     "price": 2.49,
     "currency": "USD",
     "inStock": true,
-    "rating": 4.5
+    "rating": 4.5,
+    "url": "https://www.scienceinsport.com/products/sis-beta-fuel-gel"
   },
   {
     "id": "tri-n002",
@@ -151,7 +152,8 @@
     "price": 45.00,
     "currency": "USD",
     "inStock": true,
-    "rating": 4.8
+    "rating": 4.8,
+    "url": "https://www.maurten.com/products/drink-mix-320"
   },
   {
     "id": "tri-n003",
@@ -162,7 +164,8 @@
     "price": 19.99,
     "currency": "USD",
     "inStock": true,
-    "rating": 4.6
+    "rating": 4.6,
+    "url": "https://www.precisionhydration.com/products/electrolyte-drinks/1500"
   },
   {
     "id": "tri-n004",
@@ -173,7 +176,80 @@
     "price": 3.49,
     "currency": "USD",
     "inStock": true,
-    "rating": 4.4
+    "rating": 4.4,
+    "url": "https://veloforte.com/products/mocha"
+  },
+  {
+    "id": "tri-n005",
+    "title": "Maurten Gel 100",
+    "description": "Clean hydrogel energy gel with 25g carbs, no added flavour, colour, or preservatives. Designed for high-intensity racing when GI tolerance is critical.",
+    "category": "nutrition",
+    "brand": "Maurten",
+    "price": 4.50,
+    "currency": "USD",
+    "inStock": true,
+    "rating": 4.7,
+    "url": "https://www.maurten.com/products/gel-100"
+  },
+  {
+    "id": "tri-n006",
+    "title": "GU Energy Gel – Salted Caramel",
+    "description": "100-calorie performance gel with 21g carbs, 40mg caffeine, and electrolytes. Compact and easy to take mid-race — a staple at aid stations worldwide.",
+    "category": "nutrition",
+    "brand": "GU Energy",
+    "price": 1.75,
+    "currency": "USD",
+    "inStock": true,
+    "rating": 4.5,
+    "url": "https://guenergy.com/products/energy-gel"
+  },
+  {
+    "id": "tri-n007",
+    "title": "Clif Shot Bloks – Black Cherry",
+    "description": "Chewable energy chews with 24g carbs and 50mg caffeine per serving — great alternative to gels for athletes who prefer solid fuel on the bike leg.",
+    "category": "nutrition",
+    "brand": "Clif Bar",
+    "price": 2.25,
+    "currency": "USD",
+    "inStock": true,
+    "rating": 4.4,
+    "url": "https://www.clifbar.com/products/clif-shot/bloks"
+  },
+  {
+    "id": "tri-n008",
+    "title": "Tailwind Endurance Fuel – Mandarin Orange",
+    "description": "All-in-one race fuel with carbs, electrolytes, and calories in a single drink mix — eliminates the need to carry separate gels and salt tabs in long-course racing.",
+    "category": "nutrition",
+    "brand": "Tailwind Nutrition",
+    "price": 39.99,
+    "currency": "USD",
+    "inStock": true,
+    "rating": 4.6,
+    "url": "https://www.tailwindnutrition.com/products/endurance-fuel"
+  },
+  {
+    "id": "tri-n009",
+    "title": "High5 ZERO Electrolyte Tabs",
+    "description": "Zero-calorie effervescent electrolyte tablets with sodium, magnesium, and vitamin C. Drop one in a biddon for hypotonic hydration between nutrition stops.",
+    "category": "nutrition",
+    "brand": "High5",
+    "price": 9.99,
+    "currency": "USD",
+    "inStock": true,
+    "rating": 4.4,
+    "url": "https://www.highfive.co.uk/products/zero"
+  },
+  {
+    "id": "tri-n010",
+    "title": "Spring Energy Canaberry Real Food Gel",
+    "description": "Real-food gel made from oats, strawberries, and cranberries with 150 calories and 30g carbs — whole-food fuelling option for athletes sensitive to synthetic gels.",
+    "category": "nutrition",
+    "brand": "Spring Energy",
+    "price": 3.50,
+    "currency": "USD",
+    "inStock": true,
+    "rating": 4.3,
+    "url": "https://springenergy.com/products/canaberry"
   },
   {
     "id": "tri-g001",

@@ -35,7 +35,7 @@ export const generateAnswer = async (
   const context = matches
     .map(
       ({ product, score }) =>
-        `ID: ${product.id}\nTitle: ${product.title}\nBrand: ${product.brand}\nCategory: ${product.category}\nPrice: ${product.price} ${product.currency}\nInStock: ${product.inStock}\nScore: ${score.toFixed(3)}\nDescription: ${product.description}`
+        `ID: ${product.id}\nTitle: ${product.title}\nBrand: ${product.brand}\nCategory: ${product.category}\nPrice: ${product.price} ${product.currency}\nInStock: ${product.inStock}\nScore: ${score.toFixed(3)}\nURL: ${product.url ?? "N/A"}\nDescription: ${product.description}`
     )
     .join("\n\n");
 
@@ -52,7 +52,8 @@ export const generateAnswer = async (
           "You are a knowledgeable triathlon and endurance sports assistant for an online gear shop. " +
           "Your expertise spans all three disciplines — swim, bike, and run — as well as nutrition, training equipment, and race-day logistics. " +
           "You understand terms like T1/T2 transitions, brick sessions, FTP, VO2max, long-course vs short-course racing, open-water swimming, and periodised training. " +
-          "Always recommend products based only on the provided context. If no suitable match exists, say so clearly and ask a helpful clarifying question about the athlete's race distance, budget, or specific discipline."
+          "Always recommend products based only on the provided context. If no suitable match exists, say so clearly and ask a helpful clarifying question about the athlete's race distance, budget, or specific discipline. " +
+          "When recommending nutrition products, always include the product URL as a clickable markdown link so the user can buy or read more."
       },
       {
         role: "user",

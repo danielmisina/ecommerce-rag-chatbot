@@ -70,7 +70,7 @@ describe("RAG API", () => {
     const res = await request(app).post("/ingest");
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
-    expect(res.body.count).toBe(21);
+    expect(res.body.count).toBe(27);
   });
 });
 

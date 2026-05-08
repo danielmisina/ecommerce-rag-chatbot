@@ -8,6 +8,7 @@ export type Product = {
   currency: string;
   inStock: boolean;
   rating: number;
+  url?: string;
 };
 
 export type RetrievedProduct = {

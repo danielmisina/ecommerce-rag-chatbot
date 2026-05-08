@@ -135,7 +135,7 @@ export const retrieveProducts = async (
 
     const where = conditions.join(" AND ");
     const sql = `
-      SELECT id, title, description, category, brand, price, currency, in_stock, rating,
+      SELECT id, title, description, category, brand, price, currency, in_stock, rating, url,
              1 - (embedding <=> $1) AS score
       FROM products
       WHERE ${where}
@@ -155,7 +155,8 @@ export const retrieveProducts = async (
         price: Number(row.price),
         currency: row.currency as string,
         inStock: row.in_stock as boolean,
-        rating: Number(row.rating)
+        rating: Number(row.rating),
+        url: (row.url as string) ?? undefined,
       },
       score: Number(row.score)
     }));
