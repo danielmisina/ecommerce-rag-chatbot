@@ -27,10 +27,11 @@ const STOP_WORDS = new Set([
 ]);
 
 const CATEGORY_ALIASES: Record<string, string[]> = {
-  shoes: ["shoes", "sneakers", "running"],
-  apparel: ["apparel", "shirt", "tee", "clothing"],
-  electronics: ["electronics", "headphones", "audio", "bluetooth"],
-  home: ["home", "kitchen", "coffee"]
+  swim: ["swim", "wetsuit", "goggles", "trisuit", "tri suit", "open water", "pool"],
+  bike: ["bike", "cycling", "bicycle", "triathlon bike", "tt bike", "helmet", "trainer", "zwift", "turbo"],
+  run: ["run", "running", "shoes", "trail", "marathon", "brick", "jog"],
+  nutrition: ["nutrition", "gel", "energy", "carbs", "electrolyte", "hydration", "recovery", "fuel", "drink mix"],
+  gear: ["gear", "watch", "gps", "heart rate", "hrm", "bag", "backpack", "sunglasses", "race belt", "transition"]
 };
 
 export const parseFilters = (message: string): RetrievalFilters => {

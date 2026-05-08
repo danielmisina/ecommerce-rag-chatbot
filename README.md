@@ -1,6 +1,6 @@
-# Ecommerce RAG Chatbot (Node.js + TypeScript)
+# Triathlon Gear RAG Chatbot (Node.js + TypeScript)
 
-A minimal learning project for building an ecommerce chatbot using Retrieval-Augmented Generation (RAG).
+A RAG-powered chatbot specialised in triathlon and endurance sports gear, built with Node.js + TypeScript.
 
 ## What is included
 
@@ -8,7 +8,8 @@ A minimal learning project for building an ecommerce chatbot using Retrieval-Aug
 - PostgreSQL + pgvector for product storage and vector similarity search
 - OpenAI `text-embedding-3-small` embeddings at ingest & retrieval time
 - Keyword cosine-similarity fallback when no OpenAI key is configured
-- Seed catalog in `src/data/products.json`
+- 21-product triathlon seed catalog in `src/data/products.json` (swim, bike, run, nutrition, gear)
+- Triathlon-specialist system prompt covering T1/T2, brick sessions, race nutrition, and more
 - Optional OpenAI answer generation (fallback response works without API key)
 - Test harness with Vitest + Supertest (mocked DB — no real Postgres needed for tests)
 
