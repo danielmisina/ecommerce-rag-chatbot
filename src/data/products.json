@@ -141,8 +141,7 @@
         "currency":  "USD",
         "inStock":  true,
         "rating":  4.5,
-        "url":  "https://www.scienceinsport.com/products/sis-beta-fuel-gel",
-        "carbsPerServing":  80
+        "url":  "https://www.scienceinsport.com/products/sis-beta-fuel-gel"
     },
     {
         "id":  "tri-n002",
@@ -154,8 +153,7 @@
         "currency":  "USD",
         "inStock":  true,
         "rating":  4.8,
-        "url":  "https://www.maurten.com/products/drink-mix-320",
-        "carbsPerServing":  80
+        "url":  "https://www.maurten.com/products/drink-mix-320"
     },
     {
         "id":  "tri-n003",
@@ -167,8 +165,7 @@
         "currency":  "USD",
         "inStock":  true,
         "rating":  4.6,
-        "url":  "https://www.precisionhydration.com/products/electrolyte-drinks/1500",
-        "carbsPerServing":  0
+        "url":  "https://www.precisionhydration.com/products/electrolyte-drinks/1500"
     },
     {
         "id":  "tri-n004",
@@ -180,8 +177,7 @@
         "currency":  "USD",
         "inStock":  true,
         "rating":  4.4,
-        "url":  "https://veloforte.com/products/mocha",
-        "carbsPerServing":  30
+        "url":  "https://veloforte.com/products/mocha"
     },
     {
         "id":  "tri-n005",
@@ -193,8 +189,7 @@
         "currency":  "USD",
         "inStock":  true,
         "rating":  4.7,
-        "url":  "https://www.maurten.com/products/gel-100",
-        "carbsPerServing":  25
+        "url":  "https://www.maurten.com/products/gel-100"
     },
     {
         "id":  "tri-n006",
@@ -206,8 +201,7 @@
         "currency":  "USD",
         "inStock":  true,
         "rating":  4.5,
-        "url":  "https://guenergy.com/products/energy-gel",
-        "carbsPerServing":  21
+        "url":  "https://guenergy.com/products/energy-gel"
     },
     {
         "id":  "tri-n007",
@@ -219,8 +213,7 @@
         "currency":  "USD",
         "inStock":  true,
         "rating":  4.4,
-        "url":  "https://www.clifbar.com/products/clif-shot/bloks",
-        "carbsPerServing":  24
+        "url":  "https://www.clifbar.com/products/clif-shot/bloks"
     },
     {
         "id":  "tri-n008",
@@ -232,8 +225,7 @@
         "currency":  "USD",
         "inStock":  true,
         "rating":  4.6,
-        "url":  "https://www.tailwindnutrition.com/products/endurance-fuel",
-        "carbsPerServing":  50
+        "url":  "https://www.tailwindnutrition.com/products/endurance-fuel"
     },
     {
         "id":  "tri-n009",
@@ -245,8 +237,7 @@
         "currency":  "USD",
         "inStock":  true,
         "rating":  4.4,
-        "url":  "https://www.highfive.co.uk/products/zero",
-        "carbsPerServing":  0
+        "url":  "https://www.highfive.co.uk/products/zero"
     },
     {
         "id":  "tri-n010",
@@ -258,8 +249,7 @@
         "currency":  "USD",
         "inStock":  true,
         "rating":  4.3,
-        "url":  "https://springenergy.com/products/canaberry",
-        "carbsPerServing":  30
+        "url":  "https://springenergy.com/products/canaberry"
     },
     {
         "id":  "tri-g001",

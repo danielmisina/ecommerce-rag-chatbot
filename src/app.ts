@@ -6,24 +6,12 @@ import { pool as defaultPool } from "./db/client";
 import { ingestProducts, ingestArticles } from "./rag/ingest";
 import { generateAnswer } from "./rag/generator";
 import { retrieveProducts, retrieveDocuments } from "./rag/retriever";
-import { calculateGels } from "./rag/calculator";
 import { ChatResponse } from "./types";
 
 const chatSchema = z.object({
   sessionId: z.string().optional(),
   message: z.string().min(1)
 });
-
-const calculateGelsSchema = z.object({
-  raceType: z.enum(["sprint", "olympic", "70.3", "ironman"]).optional(),
-  durationMinutes: z.number().positive().optional(),
-  leg: z.enum(["bike", "run", "all"]).default("all"),
-  gelId: z.string().optional(),
-  carbsPerHour: z.number().min(30).max(120).default(60),
-}).refine(
-  (d) => d.raceType != null || d.durationMinutes != null,
-  { message: 'Provide either "raceType" or "durationMinutes".' }
-);
 
 export const createApp = (pool: Pool = defaultPool) => {
   const app = express();
@@ -38,8 +26,7 @@ export const createApp = (pool: Pool = defaultPool) => {
         "GET /health",
         "POST /ingest",
         "POST /ingest/articles",
-        "POST /chat",
-        "POST /calculate/gels"
+        "POST /chat"
       ]
     });
   });
@@ -93,21 +80,6 @@ export const createApp = (pool: Pool = defaultPool) => {
     };
 
     return res.json(response);
-  });
-
-  app.post("/calculate/gels", async (req, res) => {
-    const parsed = calculateGelsSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({ error: parsed.error.issues[0].message });
-    }
-
-    try {
-      const result = await calculateGels(parsed.data, pool);
-      return res.json(result);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Calculation failed.";
-      return res.status(400).json({ error: message });
-    }
   });
 
   return app;

@@ -9,7 +9,6 @@ export type Product = {
   inStock: boolean;
   rating: number;
   url?: string;
-  carbsPerServing?: number;
 };
 
 export type DocumentChunk = {
@@ -27,28 +26,6 @@ export type RetrievedDocument = {
 };
 
 // ...existing code...
-
-export type RaceType = "sprint" | "olympic" | "70.3" | "ironman";
-export type RaceLeg  = "bike" | "run" | "all";
-
-export type GelCalculationInput = {
-  raceType?: RaceType;
-  durationMinutes?: number;
-  leg: RaceLeg;
-  gelId?: string;
-  carbsPerHour: number;
-};
-
-export type GelCalculationResult = {
-  raceType?: RaceType;
-  leg: RaceLeg;
-  durationMinutes: number;
-  carbsPerHour: number;
-  totalCarbsNeeded: number;
-  gelsNeeded: number;
-  product: Pick<Product, "id" | "title" | "brand" | "price" | "url" | "carbsPerServing">;
-  notes: string[];
-};
 
 export type RetrievedProduct = {
   product: Product;
