@@ -2,12 +2,18 @@ import { pool } from "../db/client";
 import { ingestProducts } from "../rag/ingest";
 import { retrieveProducts } from "../rag/retriever";
 
+const tenantId = process.env.SEED_TENANT_ID;
+if (!tenantId) {
+  console.error("Error: SEED_TENANT_ID env var is required. Create a tenant first via POST /tenants.");
+  process.exit(1);
+}
+
 (async () => {
-  const count = await ingestProducts(pool);
-  console.log(`Ingested ${count} products.`);
+  const count = await ingestProducts(pool, tenantId);
+  console.log(`Ingested ${count} products for tenant ${tenantId}.`);
 
   const sampleQuery = "I need running shoes under $100";
-  const { filters, matches } = await retrieveProducts(sampleQuery, pool, 3);
+  const { filters, matches } = await retrieveProducts(sampleQuery, pool, tenantId, 3);
 
   console.log("Sample query:", sampleQuery);
   console.log("Applied filters:", filters);

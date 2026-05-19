@@ -2,9 +2,17 @@ CREATE EXTENSION IF NOT EXISTS vector;
 
 DROP TABLE IF EXISTS documents;
 DROP TABLE IF EXISTS products;
+DROP TABLE IF EXISTS tenants;
+
+CREATE TABLE tenants (
+  id         TEXT        PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  name       TEXT        NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
 CREATE TABLE products (
   id          TEXT         PRIMARY KEY,
+  tenant_id   TEXT         NOT NULL REFERENCES tenants(id),
   title       TEXT         NOT NULL,
   description TEXT         NOT NULL,
   category    TEXT         NOT NULL,
@@ -17,11 +25,13 @@ CREATE TABLE products (
   embedding   vector(1536)
 );
 
+CREATE INDEX IF NOT EXISTS products_tenant_id_idx ON products(tenant_id);
 CREATE INDEX IF NOT EXISTS products_embedding_idx
   ON products USING hnsw (embedding vector_cosine_ops);
 
 CREATE TABLE documents (
   id          TEXT    PRIMARY KEY,
+  tenant_id   TEXT    NOT NULL REFERENCES tenants(id),
   source_id   TEXT    NOT NULL,
   title       TEXT    NOT NULL,
   chunk_index INTEGER NOT NULL,
@@ -30,5 +40,6 @@ CREATE TABLE documents (
   embedding   vector(1536)
 );
 
+CREATE INDEX IF NOT EXISTS documents_tenant_id_idx ON documents(tenant_id);
 CREATE INDEX IF NOT EXISTS documents_embedding_idx
   ON documents USING hnsw (embedding vector_cosine_ops);

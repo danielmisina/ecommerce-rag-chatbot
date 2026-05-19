@@ -86,9 +86,10 @@ const keywordFallback = async (
   message: string,
   filters: RetrievalFilters,
   pool: Pool,
+  tenantId: string,
   topK: number
 ): Promise<RetrievedProduct[]> => {
-  const products = await getAllProducts(pool);
+  const products = await getAllProducts(pool, tenantId);
   const queryVector = termCounts(tokenize(message));
 
   const filtered = products.filter((product: Product) => {
@@ -111,6 +112,7 @@ const keywordFallback = async (
 export const retrieveProducts = async (
   message: string,
   pool: Pool,
+  tenantId: string,
   topK = 3
 ): Promise<{ filters: RetrievalFilters; matches: RetrievedProduct[] }> => {
   const filters = parseFilters(message);
@@ -120,6 +122,9 @@ export const retrieveProducts = async (
     const conditions: string[] = [];
     const params: unknown[] = [`[${embedding.join(",")}]`];
     let idx = 2;
+
+    conditions.push(`tenant_id = $${idx++}`);
+    params.push(tenantId);
 
     if (filters.inStockOnly) conditions.push("in_stock = true");
     if (typeof filters.maxPrice === "number") {
@@ -165,13 +170,14 @@ export const retrieveProducts = async (
   }
 
   // No embedding available — keyword fallback
-  const matches = await keywordFallback(message, filters, pool, topK);
+  const matches = await keywordFallback(message, filters, pool, tenantId, topK);
   return { filters, matches };
 };
 
 export const retrieveDocuments = async (
   message: string,
   pool: Pool,
+  tenantId: string,
   topK = 3
 ): Promise<RetrievedDocument[]> => {
   const embedding = await getEmbedding(message);
@@ -181,11 +187,11 @@ export const retrieveDocuments = async (
       SELECT id, source_id, title, chunk_index, body, tags,
              1 - (embedding <=> $1) AS score
       FROM documents
-      WHERE embedding IS NOT NULL
+      WHERE embedding IS NOT NULL AND tenant_id = $2
       ORDER BY embedding <=> $1
-      LIMIT $2
+      LIMIT $3
     `;
-    const result = await pool.query(sql, [`[${embedding.join(",")}]`, topK]);
+    const result = await pool.query(sql, [`[${embedding.join(",")}]`, tenantId, topK]);
     return result.rows.map((row) => ({
       chunk: {
         id: row.id as string,
@@ -201,7 +207,8 @@ export const retrieveDocuments = async (
 
   // Keyword fallback
   const result = await pool.query(
-    "SELECT id, source_id, title, chunk_index, body, tags FROM documents"
+    "SELECT id, source_id, title, chunk_index, body, tags FROM documents WHERE tenant_id = $1",
+    [tenantId]
   );
   const queryVector = termCounts(tokenize(message));
 

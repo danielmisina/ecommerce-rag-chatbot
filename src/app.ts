@@ -2,15 +2,23 @@ import express from "express";
 import path from "node:path";
 import { Pool } from "pg";
 import { z } from "zod";
+import jwt from "jsonwebtoken";
 import { pool as defaultPool } from "./db/client";
 import { ingestProducts, ingestArticles } from "./rag/ingest";
 import { generateAnswer } from "./rag/generator";
 import { retrieveProducts, retrieveDocuments } from "./rag/retriever";
-import { ChatResponse } from "./types";
+import { tenantAuth, AuthenticatedRequest } from "./middleware/auth";
+import { adminAuth } from "./middleware/adminAuth";
+import { env } from "./config/env";
+import { ChatResponse, Tenant } from "./types";
 
 const chatSchema = z.object({
   sessionId: z.string().optional(),
   message: z.string().min(1)
+});
+
+const createTenantSchema = z.object({
+  name: z.string().min(1)
 });
 
 export const createApp = (pool: Pool = defaultPool) => {
@@ -24,6 +32,9 @@ export const createApp = (pool: Pool = defaultPool) => {
       ok: true,
       endpoints: [
         "GET /health",
+        "POST /tenants",
+        "GET /tenants",
+        "DELETE /tenants/:id",
         "POST /ingest",
         "POST /ingest/articles",
         "POST /chat"
@@ -39,26 +50,77 @@ export const createApp = (pool: Pool = defaultPool) => {
     res.json({ ok: true });
   });
 
-  app.post("/ingest", async (_req, res) => {
-    const count = await ingestProducts(pool);
+  // ── Tenant management (admin-only) ──────────────────────────────────────────
+
+  app.post("/tenants", adminAuth, async (req, res) => {
+    const parsed = createTenantSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid request payload" });
+    }
+
+    const result = await pool.query<{ id: string; name: string; created_at: string }>(
+      `INSERT INTO tenants (name) VALUES ($1) RETURNING id, name, created_at`,
+      [parsed.data.name]
+    );
+
+    const row = result.rows[0];
+    const tenant: Tenant = { id: row.id, name: row.name, createdAt: row.created_at };
+    const token = jwt.sign({ tenantId: tenant.id }, env.jwtSecret);
+
+    return res.status(201).json({ tenant, token });
+  });
+
+  app.get("/tenants", adminAuth, async (_req, res) => {
+    const result = await pool.query<{ id: string; name: string; created_at: string }>(
+      `SELECT id, name, created_at FROM tenants ORDER BY created_at`
+    );
+    const tenants: Tenant[] = result.rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      createdAt: row.created_at,
+    }));
+    return res.json({ tenants });
+  });
+
+  app.delete("/tenants/:id", adminAuth, async (req, res) => {
+    const { id } = req.params;
+    await pool.query(`DELETE FROM products WHERE tenant_id = $1`, [id]);
+    await pool.query(`DELETE FROM documents WHERE tenant_id = $1`, [id]);
+    const result = await pool.query(`DELETE FROM tenants WHERE id = $1`, [id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Tenant not found" });
+    }
+    return res.json({ ok: true });
+  });
+
+  // ── Ingestion (tenant-authenticated) ────────────────────────────────────────
+
+  app.post("/ingest", tenantAuth, async (req, res) => {
+    const tenantId = (req as AuthenticatedRequest).tenantId;
+    const count = await ingestProducts(pool, tenantId);
     res.json({ ok: true, count });
   });
 
-  app.post("/ingest/articles", async (_req, res) => {
-    const count = await ingestArticles(pool);
+  app.post("/ingest/articles", tenantAuth, async (req, res) => {
+    const tenantId = (req as AuthenticatedRequest).tenantId;
+    const count = await ingestArticles(pool, tenantId);
     res.json({ ok: true, count });
   });
 
-  app.post("/chat", async (req, res) => {
+  // ── Chat (tenant-authenticated) ─────────────────────────────────────────────
+
+  app.post("/chat", tenantAuth, async (req, res) => {
     const parsed = chatSchema.safeParse(req.body);
 
     if (!parsed.success) {
       return res.status(400).json({ error: "Invalid request payload" });
     }
 
+    const tenantId = (req as AuthenticatedRequest).tenantId;
+
     const [{ filters, matches }, docChunks] = await Promise.all([
-      retrieveProducts(parsed.data.message, pool, 3),
-      retrieveDocuments(parsed.data.message, pool, 3),
+      retrieveProducts(parsed.data.message, pool, tenantId, 3),
+      retrieveDocuments(parsed.data.message, pool, tenantId, 3),
     ]);
 
     const answer = await generateAnswer(parsed.data.message, matches, docChunks);

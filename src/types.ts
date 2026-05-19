@@ -1,3 +1,9 @@
+export type Tenant = {
+  id: string;
+  name: string;
+  createdAt: string;
+};
+
 export type Product = {
   id: string;
   title: string;

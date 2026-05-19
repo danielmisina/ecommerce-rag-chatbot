@@ -34,16 +34,17 @@ const rowToProduct = (row: ProductRow): Product => ({
   url: row.url ?? undefined,
 });
 
-export const ingestProducts = async (pool: Pool): Promise<number> => {
+export const ingestProducts = async (pool: Pool, tenantId: string): Promise<number> => {
   const products = productsJson as Product[];
 
   for (const product of products) {
+    const id = `${tenantId}-${product.id}`;
     const text = `${product.title} ${product.description} ${product.brand} ${product.category}`;
     const embedding = await getEmbedding(text);
 
     await pool.query(
-      `INSERT INTO products (id, title, description, category, brand, price, currency, in_stock, rating, url, embedding)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      `INSERT INTO products (id, tenant_id, title, description, category, brand, price, currency, in_stock, rating, url, embedding)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        ON CONFLICT (id) DO UPDATE SET
          title             = EXCLUDED.title,
          description       = EXCLUDED.description,
@@ -56,7 +57,8 @@ export const ingestProducts = async (pool: Pool): Promise<number> => {
          url               = EXCLUDED.url,
          embedding         = EXCLUDED.embedding`,
       [
-        product.id,
+        id,
+        tenantId,
         product.title,
         product.description,
         product.category,
@@ -74,14 +76,15 @@ export const ingestProducts = async (pool: Pool): Promise<number> => {
   return products.length;
 };
 
-export const getAllProducts = async (pool: Pool): Promise<Product[]> => {
+export const getAllProducts = async (pool: Pool, tenantId: string): Promise<Product[]> => {
   const result = await pool.query<ProductRow>(
-    `SELECT id, title, description, category, brand, price, currency, in_stock, rating, url FROM products`
+    `SELECT id, title, description, category, brand, price, currency, in_stock, rating, url FROM products WHERE tenant_id = $1`,
+    [tenantId]
   );
   return result.rows.map(rowToProduct);
 };
 
-export const ingestArticles = async (pool: Pool): Promise<number> => {
+export const ingestArticles = async (pool: Pool, tenantId: string): Promise<number> => {
   const files = fs.readdirSync(ARTICLES_DIR).filter((f) => f.endsWith(".md"));
   let totalChunks = 0;
 
@@ -95,12 +98,12 @@ export const ingestArticles = async (pool: Pool): Promise<number> => {
     const chunks = chunkMarkdown(raw);
 
     for (const chunk of chunks) {
-      const id = `${sourceId}-${chunk.index}`;
+      const id = `${tenantId}-${sourceId}-${chunk.index}`;
       const embedding = await getEmbedding(chunk.body);
 
       await pool.query(
-        `INSERT INTO documents (id, source_id, title, chunk_index, body, tags, embedding)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `INSERT INTO documents (id, tenant_id, source_id, title, chunk_index, body, tags, embedding)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          ON CONFLICT (id) DO UPDATE SET
            title       = EXCLUDED.title,
            chunk_index = EXCLUDED.chunk_index,
@@ -109,6 +112,7 @@ export const ingestArticles = async (pool: Pool): Promise<number> => {
            embedding   = EXCLUDED.embedding`,
         [
           id,
+          tenantId,
           sourceId,
           title,
           chunk.index,
