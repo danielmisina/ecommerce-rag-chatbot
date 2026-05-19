@@ -171,4 +171,54 @@ describe("RAG API", () => {
     expect(typeof res.body.count).toBe("number");
     expect(res.body.count).toBeGreaterThan(0);
   });
+
+  // ── Admin ingest routes ─────────────────────────────────────────────────────
+
+  describe("Admin ingest routes", () => {
+    it("serves admin UI", async () => {
+      const res = await request(app).get("/admin-ui");
+      expect(res.status).toBe(200);
+      expect(res.text).toContain("Admin Dashboard");
+    });
+
+    it("rejects product ingest without admin key", async () => {
+      const res = await request(app)
+        .post(`/admin/ingest/${MOCK_TENANT_UUID}`)
+        .set("Authorization", "Bearer wrong-key");
+      expect(res.status).toBe(401);
+    });
+
+    it("rejects article ingest without admin key", async () => {
+      const res = await request(app)
+        .post(`/admin/ingest/articles/${MOCK_TENANT_UUID}`)
+        .set("Authorization", "Bearer wrong-key");
+      expect(res.status).toBe(401);
+    });
+
+    it("rejects invalid tenantId (not a UUID)", async () => {
+      const res = await request(app)
+        .post("/admin/ingest/not-a-uuid")
+        .set("Authorization", `Bearer ${TEST_ADMIN_KEY}`);
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain("UUID");
+    });
+
+    it("admin ingests products for a specific tenant", async () => {
+      const res = await request(app)
+        .post(`/admin/ingest/${MOCK_TENANT_UUID}`)
+        .set("Authorization", `Bearer ${TEST_ADMIN_KEY}`);
+      expect(res.status).toBe(200);
+      expect(res.body.ok).toBe(true);
+      expect(res.body.count).toBe(27);
+    });
+
+    it("admin ingests articles for a specific tenant", async () => {
+      const res = await request(app)
+        .post(`/admin/ingest/articles/${MOCK_TENANT_UUID}`)
+        .set("Authorization", `Bearer ${TEST_ADMIN_KEY}`);
+      expect(res.status).toBe(200);
+      expect(res.body.ok).toBe(true);
+      expect(res.body.count).toBeGreaterThan(0);
+    });
+  });
 });

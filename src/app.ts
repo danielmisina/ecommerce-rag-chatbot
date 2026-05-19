@@ -35,15 +35,25 @@ export const createApp = (pool: Pool = defaultPool) => {
         "POST /tenants",
         "GET /tenants",
         "DELETE /tenants/:id",
+        "POST /admin/ingest/:tenantId",
+        "POST /admin/ingest/articles/:tenantId",
         "POST /ingest",
         "POST /ingest/articles",
-        "POST /chat"
+        "POST /chat",
+        "GET /chat-ui",
+        "GET /admin-ui"
       ]
     });
   });
 
+  const adminUiPath = path.resolve(process.cwd(), "public", "admin.html");
+
   app.get("/chat-ui", (_req, res) => {
     res.sendFile(chatUiPath);
+  });
+
+  app.get("/admin-ui", (_req, res) => {
+    res.sendFile(adminUiPath);
   });
 
   app.get("/health", (_req, res) => {
@@ -91,6 +101,24 @@ export const createApp = (pool: Pool = defaultPool) => {
       return res.status(404).json({ error: "Tenant not found" });
     }
     return res.json({ ok: true });
+  });
+
+  // ── Admin ingest (admin-only) ───────────────────────────────────────────────
+
+  const adminIngestParamSchema = z.object({ tenantId: z.string().uuid() });
+
+  app.post("/admin/ingest/articles/:tenantId", adminAuth, async (req, res) => {
+    const parsed = adminIngestParamSchema.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid tenantId — must be a UUID" });
+    const count = await ingestArticles(pool, parsed.data.tenantId);
+    return res.json({ ok: true, count });
+  });
+
+  app.post("/admin/ingest/:tenantId", adminAuth, async (req, res) => {
+    const parsed = adminIngestParamSchema.safeParse(req.params);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid tenantId — must be a UUID" });
+    const count = await ingestProducts(pool, parsed.data.tenantId);
+    return res.json({ ok: true, count });
   });
 
   // ── Ingestion (tenant-authenticated) ────────────────────────────────────────

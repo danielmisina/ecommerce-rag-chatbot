@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Dashboard</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        margin: 0;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: #1f2937;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+      }
+
+      .card {
+        background: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        overflow: hidden;
+      }
+
+      /* ── Auth gate ── */
+
+      #auth-section {
+        width: 360px;
+        padding: 40px 32px;
+      }
+
+      #auth-section h1 {
+        margin: 0 0 8px 0;
+        font-size: 1.4rem;
+        font-weight: 700;
+      }
+
+      #auth-section p {
+        margin: 0 0 24px 0;
+        color: #6b7280;
+        font-size: 0.9rem;
+      }
+
+      /* ── Dashboard ── */
+
+      #dashboard-section {
+        width: 760px;
+        display: none;
+      }
+
+      .dash-header {
+        padding: 16px 24px;
+        border-bottom: 1px solid #e5e7eb;
+        background: #f9fafb;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .dash-header h1 {
+        margin: 0;
+        font-size: 1.2rem;
+        font-weight: 700;
+      }
+
+      .panel {
+        padding: 20px 24px;
+        border-bottom: 1px solid #e5e7eb;
+      }
+
+      .panel:last-child {
+        border-bottom: none;
+      }
+
+      .panel h2 {
+        margin: 0 0 14px 0;
+        font-size: 0.95rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #6b7280;
+      }
+
+      /* ── Tenant list ── */
+
+      #tenant-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      #tenant-list li {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 0;
+        border-bottom: 1px dashed #e5e7eb;
+      }
+
+      #tenant-list li:last-child {
+        border-bottom: none;
+      }
+
+      .tenant-info .tenant-name {
+        font-weight: 500;
+        font-size: 0.95rem;
+      }
+
+      .tenant-info .tenant-id {
+        font-family: monospace;
+        font-size: 0.75rem;
+        color: #9ca3af;
+        margin-top: 2px;
+      }
+
+      .empty-tenants {
+        color: #9ca3af;
+        font-size: 0.9rem;
+        padding: 8px 0;
+      }
+
+      /* ── Create tenant form ── */
+
+      .input-row {
+        display: flex;
+        gap: 8px;
+      }
+
+      input[type="text"],
+      input[type="password"] {
+        flex: 1;
+        padding: 10px 12px;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-family: inherit;
+      }
+
+      input[type="text"]:focus,
+      input[type="password"]:focus {
+        outline: none;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+      }
+
+      /* ── Ingest panel ── */
+
+      .ingest-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      select {
+        flex: 1;
+        min-width: 200px;
+        padding: 10px 12px;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-family: inherit;
+        background: #fff;
+      }
+
+      select:focus {
+        outline: none;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+      }
+
+      /* ── Buttons ── */
+
+      button {
+        padding: 10px 16px;
+        border: none;
+        background: #2563eb;
+        color: #ffffff;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 500;
+        font-size: 0.9rem;
+        font-family: inherit;
+        transition: background 0.2s;
+        white-space: nowrap;
+      }
+
+      button:hover:not(:disabled) {
+        background: #1d4ed8;
+      }
+
+      button:disabled {
+        background: #94a3b8;
+        cursor: not-allowed;
+      }
+
+      .btn-danger {
+        background: #ef4444;
+        padding: 6px 12px;
+        font-size: 0.8rem;
+      }
+
+      .btn-danger:hover:not(:disabled) {
+        background: #dc2626;
+      }
+
+      .btn-secondary {
+        background: #6b7280;
+      }
+
+      .btn-secondary:hover:not(:disabled) {
+        background: #4b5563;
+      }
+
+      /* ── Status messages ── */
+
+      .msg {
+        font-size: 0.85rem;
+        padding: 8px 12px;
+        border-radius: 6px;
+        margin-top: 10px;
+        display: none;
+      }
+
+      .msg.success {
+        background: #d1fae5;
+        color: #065f46;
+        display: block;
+      }
+
+      .msg.error {
+        background: #fee2e2;
+        color: #991b1b;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+
+    <!-- ── Auth gate ─────────────────────────────────────────────────────── -->
+    <div id="auth-section" class="card">
+      <h1>Admin Dashboard</h1>
+      <p>Enter your admin API key to continue.</p>
+      <input id="api-key-input" type="password" placeholder="Admin API key" autocomplete="current-password" />
+      <div id="auth-error" class="msg error" style="margin-bottom: 0;"></div>
+      <button id="sign-in-btn" style="width: 100%; margin-top: 12px;">Sign In</button>
+    </div>
+
+    <!-- ── Dashboard ─────────────────────────────────────────────────────── -->
+    <div id="dashboard-section" class="card">
+      <div class="dash-header">
+        <h1>Admin Dashboard</h1>
+        <button class="btn-secondary" id="sign-out-btn">Sign Out</button>
+      </div>
+
+      <!-- Tenant list -->
+      <div class="panel">
+        <h2>Tenants</h2>
+        <ul id="tenant-list"><li class="empty-tenants">Loading…</li></ul>
+        <div id="tenant-list-error" class="msg error"></div>
+      </div>
+
+      <!-- Create tenant -->
+      <div class="panel">
+        <h2>Create Tenant</h2>
+        <div class="input-row">
+          <input id="new-tenant-name" type="text" placeholder="Tenant name" />
+          <button id="create-tenant-btn">Create</button>
+        </div>
+        <div id="create-msg" class="msg"></div>
+      </div>
+
+      <!-- Ingest -->
+      <div class="panel">
+        <h2>Content Ingestion</h2>
+        <div class="ingest-row">
+          <select id="ingest-tenant-select">
+            <option value="">— select a tenant —</option>
+          </select>
+          <button id="ingest-products-btn">Re-ingest Products</button>
+          <button id="ingest-articles-btn">Re-ingest Articles</button>
+        </div>
+        <div id="ingest-msg" class="msg"></div>
+      </div>
+    </div>
+
+    <script>
+      let apiKey = sessionStorage.getItem("adminKey") || "";
+      let tenants = [];
+
+      // ── Helpers ──────────────────────────────────────────────────────────
+
+      const apiHeaders = () => ({
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json"
+      });
+
+      const showMsg = (id, text, type) => {
+        const el = document.getElementById(id);
+        el.textContent = text;
+        el.className = `msg ${type}`;
+      };
+
+      const hideMsg = (id) => {
+        const el = document.getElementById(id);
+        el.className = "msg";
+        el.textContent = "";
+      };
+
+      // ── Tenant rendering ─────────────────────────────────────────────────
+
+      const renderTenantList = () => {
+        const ul = document.getElementById("tenant-list");
+        if (tenants.length === 0) {
+          ul.innerHTML = '<li class="empty-tenants">No tenants yet.</li>';
+        } else {
+          ul.innerHTML = tenants.map(t => `
+            <li>
+              <div class="tenant-info">
+                <div class="tenant-name">${escHtml(t.name)}</div>
+                <div class="tenant-id">${escHtml(t.id)}</div>
+              </div>
+              <button class="btn-danger" onclick="deleteTenant('${escHtml(t.id)}', '${escHtml(t.name)}')">Delete</button>
+            </li>
+          `).join("");
+        }
+      };
+
+      const renderTenantSelect = () => {
+        const sel = document.getElementById("ingest-tenant-select");
+        const prev = sel.value;
+        sel.innerHTML = '<option value="">— select a tenant —</option>' +
+          tenants.map(t => `<option value="${escHtml(t.id)}">${escHtml(t.name)}</option>`).join("");
+        if (prev && tenants.find(t => t.id === prev)) sel.value = prev;
+      };
+
+      const escHtml = (str) => str.replace(/[&<>"']/g, c => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      }[c]));
+
+      // ── API calls ────────────────────────────────────────────────────────
+
+      const loadTenants = async () => {
+        hideMsg("tenant-list-error");
+        try {
+          const res = await fetch("/tenants", { headers: apiHeaders() });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          tenants = data.tenants;
+          renderTenantList();
+          renderTenantSelect();
+        } catch (e) {
+          showMsg("tenant-list-error", "Failed to load tenants: " + e.message, "error");
+        }
+      };
+
+      const signIn = async () => {
+        const key = document.getElementById("api-key-input").value.trim();
+        if (!key) return;
+        hideMsg("auth-error");
+        const btn = document.getElementById("sign-in-btn");
+        btn.disabled = true;
+        btn.textContent = "Signing in…";
+        try {
+          const res = await fetch("/tenants", {
+            headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" }
+          });
+          if (res.status === 401) {
+            showMsg("auth-error", "Invalid API key.", "error");
+            return;
+          }
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          apiKey = key;
+          sessionStorage.setItem("adminKey", key);
+          showDashboard();
+        } catch (e) {
+          showMsg("auth-error", "Connection error: " + e.message, "error");
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "Sign In";
+        }
+      };
+
+      const showDashboard = async () => {
+        document.getElementById("auth-section").style.display = "none";
+        document.getElementById("dashboard-section").style.display = "block";
+        await loadTenants();
+      };
+
+      const showAuthGate = () => {
+        apiKey = "";
+        sessionStorage.removeItem("adminKey");
+        tenants = [];
+        document.getElementById("dashboard-section").style.display = "none";
+        document.getElementById("auth-section").style.display = "block";
+        document.getElementById("api-key-input").value = "";
+        hideMsg("auth-error");
+      };
+
+      const createTenant = async () => {
+        const name = document.getElementById("new-tenant-name").value.trim();
+        if (!name) return;
+        hideMsg("create-msg");
+        const btn = document.getElementById("create-tenant-btn");
+        btn.disabled = true;
+        try {
+          const id = crypto.randomUUID();
+          const res = await fetch("/tenants", {
+            method: "POST",
+            headers: apiHeaders(),
+            body: JSON.stringify({ id, name })
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || `HTTP ${res.status}`);
+          }
+          document.getElementById("new-tenant-name").value = "";
+          showMsg("create-msg", `Created — ID: ${id}`, "success");
+          await loadTenants();
+        } catch (e) {
+          showMsg("create-msg", "Error: " + e.message, "error");
+        } finally {
+          btn.disabled = false;
+        }
+      };
+
+      const deleteTenant = async (id, name) => {
+        if (!confirm(`Delete tenant "${name}"?\n\nThis will permanently remove all their products and articles.`)) return;
+        hideMsg("tenant-list-error");
+        try {
+          const res = await fetch(`/tenants/${encodeURIComponent(id)}`, {
+            method: "DELETE",
+            headers: apiHeaders()
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || `HTTP ${res.status}`);
+          }
+          await loadTenants();
+        } catch (e) {
+          showMsg("tenant-list-error", "Delete failed: " + e.message, "error");
+        }
+      };
+
+      const runIngest = async (type) => {
+        const tenantId = document.getElementById("ingest-tenant-select").value;
+        if (!tenantId) {
+          showMsg("ingest-msg", "Select a tenant first.", "error");
+          return;
+        }
+        hideMsg("ingest-msg");
+        const productsBtn = document.getElementById("ingest-products-btn");
+        const articlesBtn = document.getElementById("ingest-articles-btn");
+        productsBtn.disabled = true;
+        articlesBtn.disabled = true;
+        const label = type === "products" ? "Products" : "Articles";
+        try {
+          const url = type === "products"
+            ? `/admin/ingest/${encodeURIComponent(tenantId)}`
+            : `/admin/ingest/articles/${encodeURIComponent(tenantId)}`;
+          const res = await fetch(url, { method: "POST", headers: apiHeaders() });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || `HTTP ${res.status}`);
+          }
+          const data = await res.json();
+          showMsg("ingest-msg", `${label} ingested: ${data.count} record${data.count !== 1 ? "s" : ""}.`, "success");
+        } catch (e) {
+          showMsg("ingest-msg", `${label} ingest failed: ` + e.message, "error");
+        } finally {
+          productsBtn.disabled = false;
+          articlesBtn.disabled = false;
+        }
+      };
+
+      // ── Event wiring ─────────────────────────────────────────────────────
+
+      document.getElementById("sign-in-btn").addEventListener("click", signIn);
+      document.getElementById("api-key-input").addEventListener("keydown", e => {
+        if (e.key === "Enter") signIn();
+      });
+      document.getElementById("sign-out-btn").addEventListener("click", showAuthGate);
+      document.getElementById("create-tenant-btn").addEventListener("click", createTenant);
+      document.getElementById("new-tenant-name").addEventListener("keydown", e => {
+        if (e.key === "Enter") createTenant();
+      });
+      document.getElementById("ingest-products-btn").addEventListener("click", () => runIngest("products"));
+      document.getElementById("ingest-articles-btn").addEventListener("click", () => runIngest("articles"));
+
+      // ── Init ─────────────────────────────────────────────────────────────
+
+      if (apiKey) {
+        showDashboard();
+      } else {
+        document.getElementById("auth-section").style.display = "block";
+      }
+    </script>
+  </body>
+</html>

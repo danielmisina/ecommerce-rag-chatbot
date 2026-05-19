@@ -14,7 +14,8 @@
       "Bash(npm run *)",
       "Bash(ping -n 3 127.0.0.1)",
       "Bash(curl -s http://localhost:3000/)",
-      "Bash(node *)"
+      "Bash(node *)",
+      "Bash(curl -s http://localhost:3000/admin-ui)"
     ]
   }
 }
