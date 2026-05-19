@@ -7,7 +7,14 @@
       "Bash(find:*)",
       "Bash(npm test:*)",
       "Bash(npm run migrate:*)",
-      "Bash(docker compose:*)"
+      "Bash(docker compose:*)",
+      "Bash(npm install *)",
+      "Bash(npx vitest *)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(ping -n 3 127.0.0.1)",
+      "Bash(curl -s http://localhost:3000/)",
+      "Bash(node *)"
     ]
   }
 }

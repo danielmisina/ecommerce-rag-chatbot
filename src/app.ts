@@ -2,14 +2,12 @@ import express from "express";
 import path from "node:path";
 import { Pool } from "pg";
 import { z } from "zod";
-import jwt from "jsonwebtoken";
 import { pool as defaultPool } from "./db/client";
 import { ingestProducts, ingestArticles } from "./rag/ingest";
 import { generateAnswer } from "./rag/generator";
 import { retrieveProducts, retrieveDocuments } from "./rag/retriever";
-import { tenantAuth, AuthenticatedRequest } from "./middleware/auth";
+import { createTenantAuth, AuthenticatedRequest } from "./middleware/auth";
 import { adminAuth } from "./middleware/adminAuth";
-import { env } from "./config/env";
 import { ChatResponse, Tenant } from "./types";
 
 const chatSchema = z.object({
@@ -18,6 +16,7 @@ const chatSchema = z.object({
 });
 
 const createTenantSchema = z.object({
+  id: z.string().uuid(),
   name: z.string().min(1)
 });
 
@@ -25,6 +24,7 @@ export const createApp = (pool: Pool = defaultPool) => {
   const app = express();
   app.use(express.json());
   const chatUiPath = path.resolve(process.cwd(), "public", "chat.html");
+  const tenantAuth = createTenantAuth(pool);
 
   app.get("/", (_req, res) => {
     res.json({
@@ -59,15 +59,15 @@ export const createApp = (pool: Pool = defaultPool) => {
     }
 
     const result = await pool.query<{ id: string; name: string; created_at: string }>(
-      `INSERT INTO tenants (name) VALUES ($1) RETURNING id, name, created_at`,
-      [parsed.data.name]
+      `INSERT INTO tenants (id, name) VALUES ($1, $2)
+       ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name
+       RETURNING id, name, created_at`,
+      [parsed.data.id, parsed.data.name]
     );
 
     const row = result.rows[0];
     const tenant: Tenant = { id: row.id, name: row.name, createdAt: row.created_at };
-    const token = jwt.sign({ tenantId: tenant.id }, env.jwtSecret);
-
-    return res.status(201).json({ tenant, token });
+    return res.status(201).json({ tenant });
   });
 
   app.get("/tenants", adminAuth, async (_req, res) => {

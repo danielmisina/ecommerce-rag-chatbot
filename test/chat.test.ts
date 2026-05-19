@@ -4,6 +4,8 @@ import jwt from "jsonwebtoken";
 
 // ── Hoisted mocks ──────────────────────────────────────────────────────────
 
+const MOCK_TENANT_UUID = "550e8400-e29b-41d4-a716-446655440000";
+
 const { mockPool, TEST_JWT_SECRET, TEST_ADMIN_KEY, TEST_TENANT_ID } = vi.hoisted(() => {
   const TEST_JWT_SECRET = "test-jwt-secret";
   const TEST_ADMIN_KEY = "test-admin-key";
@@ -14,12 +16,12 @@ const { mockPool, TEST_JWT_SECRET, TEST_ADMIN_KEY, TEST_TENANT_ID } = vi.hoisted
     { id: "test-tenant-id-tri-r001", title: "ASICS Gel-Nimbus 26", description: "Premium long-distance running shoe.", category: "run", brand: "ASICS", price: "164.99", currency: "USD", in_stock: true, rating: "4.7", url: null },
   ];
 
-  const mockTenantRow = { id: "new-tenant-id", name: "acme", created_at: new Date().toISOString() };
+  const mockTenantRow = { id: "550e8400-e29b-41d4-a716-446655440000", name: "acme", created_at: new Date().toISOString() };
 
   const mockPool = {
     query: vi.fn().mockImplementation((sql: string) => {
       const upper = typeof sql === "string" ? sql.trim().toUpperCase() : "";
-      if (upper.startsWith("INSERT INTO TENANTS")) {
+      if (upper.includes("INTO TENANTS")) {
         return Promise.resolve({ rows: [mockTenantRow] });
       }
       if (upper.startsWith("SELECT") && upper.includes("FROM TENANTS")) {
@@ -51,7 +53,7 @@ vi.mock("../src/config/env", () => ({
     openAiModel: "gpt-4o-mini",
     openAiEmbeddingModel: "text-embedding-3-small",
     databaseUrl: "postgres://test",
-    jwtSecret: TEST_JWT_SECRET,
+    supabaseJwtSecret: TEST_JWT_SECRET,
     adminApiKey: TEST_ADMIN_KEY,
   }
 }));
@@ -62,7 +64,7 @@ import { createApp } from "../src/app";
 
 describe("RAG API", () => {
   const app = createApp();
-  const tenantToken = jwt.sign({ tenantId: TEST_TENANT_ID }, TEST_JWT_SECRET);
+  const tenantToken = jwt.sign({ sub: TEST_TENANT_ID, email: "test@example.com" }, TEST_JWT_SECRET);
 
   it("returns API metadata at root", async () => {
     const res = await request(app).get("/");
@@ -111,16 +113,13 @@ describe("RAG API", () => {
 
   // ── Tenant management ───────────────────────────────────────────────────────
 
-  it("creates a tenant and returns a JWT", async () => {
+  it("pre-provisions a tenant", async () => {
     const res = await request(app)
       .post("/tenants")
       .set("Authorization", `Bearer ${TEST_ADMIN_KEY}`)
-      .send({ name: "acme" });
+      .send({ id: MOCK_TENANT_UUID, name: "acme" });
     expect(res.status).toBe(201);
-    expect(res.body.tenant).toMatchObject({ id: "new-tenant-id", name: "acme" });
-    expect(typeof res.body.token).toBe("string");
-    const payload = jwt.verify(res.body.token, TEST_JWT_SECRET) as { tenantId: string };
-    expect(payload.tenantId).toBe("new-tenant-id");
+    expect(res.body.tenant).toMatchObject({ id: MOCK_TENANT_UUID, name: "acme" });
   });
 
   it("lists tenants", async () => {
@@ -133,7 +132,7 @@ describe("RAG API", () => {
 
   it("deletes a tenant", async () => {
     const res = await request(app)
-      .delete("/tenants/new-tenant-id")
+      .delete(`/tenants/${MOCK_TENANT_UUID}`)
       .set("Authorization", `Bearer ${TEST_ADMIN_KEY}`);
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
