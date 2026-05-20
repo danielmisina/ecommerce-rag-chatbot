@@ -2,12 +2,13 @@
   const script = document.currentScript;
   const widgetKey = script.dataset.widgetKey;
   const apiBase = new URL(script.src).origin;
-  const shopUrl = script.dataset.shopUrl || "";
 
   if (!widgetKey) {
     console.error("[ChatWidget] Missing data-widget-key attribute.");
     return;
   }
+
+  const EMOJI = { swim: "🏊", bike: "🚴", run: "🏃", nutrition: "🍌", gear: "⌚" };
 
   // ── Styles ────────────────────────────────────────────────────────────────
 
@@ -38,8 +39,9 @@
     }
     #cw-header svg { width: 16px; height: 16px; fill: #fff; flex-shrink: 0; }
     #cw-header span { flex: 1; }
-    #cw-header button { background: none; border: none; color: rgba(255,255,255,0.8); cursor: pointer; font-size: 1.1rem; padding: 0; }
+    #cw-header button { background: none; border: none; color: rgba(255,255,255,0.8); cursor: pointer; font-size: 1.1rem; padding: 0; line-height: 1; }
     #cw-header button:hover { color: #fff; }
+    #cw-back { display: none; font-size: 1rem !important; }
 
     #cw-messages { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
 
@@ -49,9 +51,8 @@
     .cw-msg.err  { align-self: flex-start; background: #fee2e2; color: #991b1b; border-radius: 14px 14px 14px 3px; }
 
     .cw-products { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }
-    .cw-product  { background: #dbeafe; border-radius: 6px; padding: 5px 8px; font-size: 0.8rem; }
-    .cw-product-link { display: block; color: inherit; text-decoration: none; cursor: pointer; }
-    .cw-product-link:hover { background: #bfdbfe; }
+    .cw-product { background: #dbeafe; border-radius: 6px; padding: 5px 8px; font-size: 0.8rem; cursor: pointer; }
+    .cw-product:hover { background: #bfdbfe; }
 
     .cw-typing { display: flex; gap: 4px; align-items: center; padding: 10px 13px; background: #f3f4f6; border-radius: 14px 14px 14px 3px; align-self: flex-start; }
     .cw-dot { width: 7px; height: 7px; border-radius: 50%; background: #9ca3af; animation: cw-bounce 1.2s infinite; }
@@ -66,6 +67,19 @@
     #cw-send:disabled { opacity: 0.5; cursor: not-allowed; }
 
     .cw-empty { color: #9ca3af; font-size: 0.85rem; text-align: center; margin: auto; padding: 24px; }
+
+    #cw-detail { flex: 1; overflow-y: auto; padding: 14px; display: none; flex-direction: column; gap: 10px; }
+    .cw-det-img { font-size: 3rem; background: #f3f4f6; border-radius: 10px; padding: 14px; text-align: center; }
+    .cw-det-cat { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #667eea; }
+    .cw-det-title { font-size: 1rem; font-weight: 700; line-height: 1.3; color: #1f2937; margin-top: 2px; }
+    .cw-det-brand { font-size: 0.8rem; color: #9ca3af; }
+    .cw-det-price { font-size: 1.3rem; font-weight: 800; color: #1f2937; }
+    .cw-det-rating { font-size: 0.8rem; color: #f59e0b; }
+    .cw-det-instock  { display: inline-block; font-size: 0.72rem; font-weight: 600; padding: 2px 8px; border-radius: 4px; background: #d1fae5; color: #065f46; }
+    .cw-det-oos      { display: inline-block; font-size: 0.72rem; font-weight: 600; padding: 2px 8px; border-radius: 4px; background: #fee2e2; color: #991b1b; }
+    .cw-det-desc { font-size: 0.82rem; line-height: 1.65; color: #374151; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 12px; }
+    .cw-det-link { display: block; text-align: center; padding: 9px 14px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff !important; border-radius: 8px; text-decoration: none !important; font-size: 0.875rem; font-weight: 500; }
+    .cw-det-link:hover { opacity: 0.88; }
   `;
   document.head.appendChild(style);
 
@@ -76,6 +90,7 @@
   root.innerHTML = `
     <div id="cw-panel">
       <div id="cw-header">
+        <button id="cw-back" title="Back">←</button>
         <svg viewBox="0 0 24 24"><path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z"/></svg>
         <span>Product Assistant</span>
         <button id="cw-close" title="Close">✕</button>
@@ -83,6 +98,7 @@
       <div id="cw-messages">
         <div class="cw-empty">Ask about products, prices, or features!</div>
       </div>
+      <div id="cw-detail"></div>
       <form id="cw-form">
         <input id="cw-input" type="text" placeholder="Ask something…" autocomplete="off" />
         <button id="cw-send" type="submit">Send</button>
@@ -98,6 +114,9 @@
 
   const panel    = document.getElementById("cw-panel");
   const messages = document.getElementById("cw-messages");
+  const detail   = document.getElementById("cw-detail");
+  const back     = document.getElementById("cw-back");
+  const form     = document.getElementById("cw-form");
   const input    = document.getElementById("cw-input");
   const send     = document.getElementById("cw-send");
   let   firstMsg = true;
@@ -109,6 +128,14 @@
 
   document.getElementById("cw-close").addEventListener("click", () => {
     panel.classList.remove("open");
+  });
+
+  back.addEventListener("click", () => {
+    detail.style.display = "none";
+    back.style.display = "none";
+    messages.style.display = "flex";
+    form.style.display = "flex";
+    input.focus();
   });
 
   document.getElementById("cw-form").addEventListener("submit", async (e) => {
@@ -163,25 +190,40 @@
       const list = document.createElement("div");
       list.className = "cw-products";
       products.forEach((p) => {
-        let item;
-        if (shopUrl && p.id) {
-          item = document.createElement("a");
-          item.href = `${apiBase}${shopUrl}?key=${encodeURIComponent(widgetKey)}&product=${encodeURIComponent(p.id)}`;
-          item.className = "cw-product cw-product-link";
-          item.addEventListener("click", (e) => {
-            e.preventDefault();
-            document.dispatchEvent(new CustomEvent("cw:product-click", { detail: { product: p } }));
-          });
-        } else {
-          item = document.createElement("div");
-          item.className = "cw-product";
-        }
+        const item = document.createElement("div");
+        item.className = "cw-product";
         item.textContent = `${p.title} — $${Number(p.price).toFixed(2)}`;
+        item.addEventListener("click", () => showProductDetail(p));
         list.appendChild(item);
       });
       div.appendChild(list);
     }
     messages.appendChild(div);
     messages.scrollTop = messages.scrollHeight;
+  }
+
+  function showProductDetail(p) {
+    const emoji = EMOJI[p.category] || "📦";
+    const stars = "★".repeat(Math.round(p.rating || 0));
+    detail.innerHTML = `
+      <div class="cw-det-img">${emoji}</div>
+      <div>
+        <div class="cw-det-cat">${p.category || ""}</div>
+        <div class="cw-det-title">${p.title}</div>
+        <div class="cw-det-brand">${p.brand || ""}</div>
+      </div>
+      <div>
+        <div class="cw-det-price">$${Number(p.price).toFixed(2)}</div>
+        <div class="cw-det-rating">${stars} ${p.rating || ""}</div>
+      </div>
+      <span class="${p.inStock ? "cw-det-instock" : "cw-det-oos"}">${p.inStock ? "In stock" : "Out of stock"}</span>
+      ${p.description ? `<div class="cw-det-desc">${p.description}</div>` : ""}
+      ${p.url ? `<a class="cw-det-link" href="${p.url}" target="_blank" rel="noopener noreferrer">View in store →</a>` : ""}
+    `;
+    messages.style.display = "none";
+    form.style.display = "none";
+    detail.style.display = "flex";
+    back.style.display = "";
+    detail.scrollTop = 0;
   }
 })();
