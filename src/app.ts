@@ -3,7 +3,7 @@ import path from "node:path";
 import { Pool } from "pg";
 import { z } from "zod";
 import { pool as defaultPool } from "./db/client";
-import { ingestProducts, ingestArticles } from "./rag/ingest";
+import { ingestProducts, ingestArticles, getAllProducts } from "./rag/ingest";
 import { generateAnswer } from "./rag/generator";
 import { retrieveProducts, retrieveDocuments } from "./rag/retriever";
 import { createTenantAuth, AuthenticatedRequest } from "./middleware/auth";
@@ -44,7 +44,9 @@ export const createApp = (pool: Pool = defaultPool) => {
         "POST /ingest/articles",
         "POST /chat",
         "POST /widget/chat",
+        "GET /widget/products",
         "GET /widget.js",
+        "GET /demo-shop",
         "GET /chat-ui",
         "GET /admin-ui"
       ]
@@ -59,6 +61,10 @@ export const createApp = (pool: Pool = defaultPool) => {
 
   app.get("/admin-ui", (_req, res) => {
     res.sendFile(adminUiPath);
+  });
+
+  app.get("/demo-shop", (_req, res) => {
+    res.sendFile(path.resolve(process.cwd(), "public", "demo-shop.html"));
   });
 
   app.get("/widget.js", (_req, res) => {
@@ -160,6 +166,13 @@ export const createApp = (pool: Pool = defaultPool) => {
   };
 
   app.options("/widget/chat", widgetCors, (_req, res) => { res.status(204).send(); });
+  app.options("/widget/products", widgetCors, (_req, res) => { res.status(204).send(); });
+
+  app.get("/widget/products", widgetCors, widgetAuth, async (req, res) => {
+    const tenantId = (req as AuthenticatedRequest).tenantId;
+    const products = await getAllProducts(pool, tenantId);
+    return res.json({ products });
+  });
 
   app.post("/widget/chat", widgetCors, widgetAuth, async (req, res) => {
     const parsed = chatSchema.safeParse(req.body);

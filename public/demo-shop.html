@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TriGear Store</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        color: #1f2937;
+        background: #f9fafb;
+      }
+
+      /* ── Header ── */
+      header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: #fff;
+        padding: 0 40px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 64px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+        position: sticky;
+        top: 0;
+        z-index: 100;
+      }
+
+      .logo { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.5px; }
+      .logo span { opacity: 0.75; font-weight: 400; font-size: 0.9rem; margin-left: 8px; }
+
+      .header-right { display: flex; align-items: center; gap: 16px; font-size: 0.9rem; opacity: 0.9; }
+
+      /* ── Setup banner ── */
+      #setup-banner {
+        background: #fef3c7;
+        border-bottom: 1px solid #fcd34d;
+        padding: 12px 40px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 0.9rem;
+        color: #92400e;
+      }
+      #setup-banner input {
+        flex: 1;
+        max-width: 340px;
+        padding: 7px 12px;
+        border: 1px solid #fcd34d;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        background: #fff;
+      }
+      #setup-banner button {
+        padding: 7px 16px;
+        background: #d97706;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.875rem;
+        font-weight: 500;
+      }
+      #setup-banner button:hover { background: #b45309; }
+
+      /* ── Category tabs ── */
+      .tabs {
+        padding: 24px 40px 0;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .tab {
+        padding: 8px 18px;
+        border: 1.5px solid #e5e7eb;
+        border-radius: 20px;
+        background: #fff;
+        cursor: pointer;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #6b7280;
+        transition: all 0.15s;
+      }
+      .tab:hover { border-color: #667eea; color: #667eea; }
+      .tab.active { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-color: transparent; color: #fff; }
+
+      /* ── Product grid ── */
+      main { padding: 24px 40px 80px; }
+
+      #product-count { font-size: 0.85rem; color: #9ca3af; margin-bottom: 16px; }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 20px;
+      }
+
+      .card {
+        background: #fff;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid #e5e7eb;
+        transition: box-shadow 0.2s, transform 0.2s;
+        display: flex;
+        flex-direction: column;
+      }
+      .card:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.1); transform: translateY(-2px); }
+
+      .card-img {
+        height: 160px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 3rem;
+        background: #f3f4f6;
+      }
+
+      .card-body { padding: 14px 16px; flex: 1; display: flex; flex-direction: column; gap: 6px; }
+
+      .card-category {
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #667eea;
+      }
+
+      .card-title { font-weight: 600; font-size: 0.95rem; line-height: 1.3; }
+
+      .card-brand { font-size: 0.8rem; color: #9ca3af; }
+
+      .card-footer {
+        padding: 12px 16px;
+        border-top: 1px solid #f3f4f6;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .card-price { font-size: 1.1rem; font-weight: 700; color: #1f2937; }
+
+      .card-rating { font-size: 0.8rem; color: #f59e0b; }
+
+      .btn-cart {
+        padding: 7px 14px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: #fff;
+        border: none;
+        border-radius: 7px;
+        cursor: pointer;
+        font-size: 0.8rem;
+        font-weight: 500;
+        transition: opacity 0.15s;
+      }
+      .btn-cart:hover { opacity: 0.88; }
+
+      .badge-oos {
+        display: inline-block;
+        background: #fee2e2;
+        color: #991b1b;
+        font-size: 0.7rem;
+        font-weight: 600;
+        padding: 2px 7px;
+        border-radius: 4px;
+      }
+
+      /* ── Empty/loading states ── */
+      .state-msg {
+        text-align: center;
+        padding: 60px 20px;
+        color: #9ca3af;
+        font-size: 1rem;
+      }
+      .state-msg .icon { font-size: 2.5rem; margin-bottom: 12px; }
+
+      /* ── Responsive ── */
+      @media (max-width: 600px) {
+        header { padding: 0 16px; }
+        .tabs { padding: 16px 16px 0; }
+        main { padding: 16px 16px 80px; }
+        #setup-banner { padding: 12px 16px; }
+      }
+    </style>
+  </head>
+  <body>
+
+    <header>
+      <div class="logo">TriGear Store <span>Demo</span></div>
+      <div class="header-right">
+        <span id="header-tenant"></span>
+        <span>🛒 Cart</span>
+      </div>
+    </header>
+
+    <div id="setup-banner">
+      <strong>Demo mode:</strong> Enter your widget key to load products.
+      <input id="key-input" type="text" placeholder="wk_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+      <button id="key-btn">Load store</button>
+    </div>
+
+    <div class="tabs" id="tabs"></div>
+
+    <main>
+      <div id="product-count"></div>
+      <div class="grid" id="grid">
+        <div class="state-msg"><div class="icon">🏊 🚴 🏃</div>Enter your widget key above to load the product catalog.</div>
+      </div>
+    </main>
+
+    <script>
+      const CATEGORY_EMOJI = { swim: "🏊", bike: "🚴", run: "🏃", nutrition: "🍌", gear: "⌚" };
+      const CATEGORY_LABEL = { swim: "Swim", bike: "Bike", run: "Run", nutrition: "Nutrition", gear: "Gear" };
+
+      let allProducts = [];
+      let activeCategory = "all";
+      let widgetKey = "";
+
+      // ── Read key from URL ────────────────────────────────────────────────
+
+      const urlKey = new URLSearchParams(location.search).get("key");
+      if (urlKey) {
+        document.getElementById("key-input").value = urlKey;
+        document.getElementById("setup-banner").style.display = "none";
+        init(urlKey);
+      }
+
+      // ── Manual key entry ─────────────────────────────────────────────────
+
+      document.getElementById("key-btn").addEventListener("click", () => {
+        const k = document.getElementById("key-input").value.trim();
+        if (k) { document.getElementById("setup-banner").style.display = "none"; init(k); }
+      });
+      document.getElementById("key-input").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") document.getElementById("key-btn").click();
+      });
+
+      // ── Load products ────────────────────────────────────────────────────
+
+      async function init(key) {
+        widgetKey = key;
+        document.getElementById("grid").innerHTML = '<div class="state-msg"><div class="icon">⏳</div>Loading products…</div>';
+
+        try {
+          const res = await fetch("/widget/products", { headers: { "X-Widget-Key": key } });
+          if (!res.ok) throw new Error(res.status === 401 ? "Invalid widget key." : `Server error ${res.status}`);
+          const data = await res.json();
+          allProducts = data.products;
+          renderTabs();
+          renderGrid();
+          injectWidget(key);
+          // Update URL without reload
+          history.replaceState(null, "", `?key=${encodeURIComponent(key)}`);
+        } catch (e) {
+          document.getElementById("grid").innerHTML = `<div class="state-msg"><div class="icon">❌</div>${e.message}</div>`;
+          document.getElementById("setup-banner").style.display = "flex";
+        }
+      }
+
+      // ── Tabs ─────────────────────────────────────────────────────────────
+
+      function renderTabs() {
+        const categories = ["all", ...new Set(allProducts.map(p => p.category))];
+        const tabsEl = document.getElementById("tabs");
+        tabsEl.innerHTML = categories.map(c => `
+          <button class="tab ${c === activeCategory ? "active" : ""}" data-cat="${c}">
+            ${c === "all" ? "All" : `${CATEGORY_EMOJI[c] || ""} ${CATEGORY_LABEL[c] || c}`}
+          </button>
+        `).join("");
+        tabsEl.querySelectorAll(".tab").forEach(btn => {
+          btn.addEventListener("click", () => {
+            activeCategory = btn.dataset.cat;
+            tabsEl.querySelectorAll(".tab").forEach(b => b.classList.toggle("active", b.dataset.cat === activeCategory));
+            renderGrid();
+          });
+        });
+      }
+
+      // ── Grid ─────────────────────────────────────────────────────────────
+
+      function renderGrid() {
+        const filtered = activeCategory === "all" ? allProducts : allProducts.filter(p => p.category === activeCategory);
+        const count = document.getElementById("product-count");
+        count.textContent = `${filtered.length} product${filtered.length !== 1 ? "s" : ""}`;
+
+        if (filtered.length === 0) {
+          document.getElementById("grid").innerHTML = '<div class="state-msg"><div class="icon">😕</div>No products in this category.</div>';
+          return;
+        }
+
+        document.getElementById("grid").innerHTML = filtered.map(p => `
+          <div class="card">
+            <div class="card-img">${CATEGORY_EMOJI[p.category] || "📦"}</div>
+            <div class="card-body">
+              <div class="card-category">${esc(CATEGORY_LABEL[p.category] || p.category)}</div>
+              <div class="card-title">${esc(p.title)}</div>
+              <div class="card-brand">${esc(p.brand)}</div>
+            </div>
+            <div class="card-footer">
+              <div>
+                <div class="card-price">$${Number(p.price).toFixed(2)}</div>
+                <div class="card-rating">${"★".repeat(Math.round(p.rating))} ${p.rating}</div>
+              </div>
+              ${p.inStock
+                ? `<button class="btn-cart" onclick="addToCart('${esc(p.title)}')">Add to cart</button>`
+                : `<span class="badge-oos">Out of stock</span>`}
+            </div>
+          </div>
+        `).join("");
+      }
+
+      // ── Widget injection ─────────────────────────────────────────────────
+
+      function injectWidget(key) {
+        if (document.getElementById("cw-root")) return;
+        const s = document.createElement("script");
+        s.src = "/widget.js";
+        s.dataset.widgetKey = key;
+        document.body.appendChild(s);
+      }
+
+      // ── Helpers ──────────────────────────────────────────────────────────
+
+      function esc(str) {
+        return String(str).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+      }
+
+      function addToCart(title) {
+        alert(`"${title}" added to cart!\n\n(This is a demo store — no real checkout.)`);
+      }
+    </script>
+  </body>
+</html>
