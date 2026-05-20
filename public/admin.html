@@ -310,12 +310,13 @@
       </div>
     </div>
 
-    <script type="module">
-      import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+      const { createClient } = supabase;
 
       // ── Bootstrap Supabase client ────────────────────────────────────────
 
-      let supabase = null;
+      let sbClient = null;
       let accessToken = null;
       let tenants = [];
 
@@ -324,7 +325,7 @@
         if (!res.ok) throw new Error("Could not load Supabase config from server.");
         const { supabaseUrl, supabaseAnonKey } = await res.json();
         if (!supabaseUrl || !supabaseAnonKey) throw new Error("Supabase URL or anon key not configured on server.");
-        supabase = createClient(supabaseUrl, supabaseAnonKey);
+        sbClient = createClient(supabaseUrl, supabaseAnonKey);
       }
 
       // ── Helpers ──────────────────────────────────────────────────────────
@@ -405,7 +406,7 @@
         btn.disabled = true;
         btn.textContent = "Signing in…";
         try {
-          const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+          const { data, error } = await sbClient.auth.signInWithPassword({ email, password });
           if (error) {
             showMsg("auth-error", error.message, "error");
             return;
@@ -415,7 +416,7 @@
           const check = await fetch("/tenants", { headers: { "Authorization": `Bearer ${token}` } });
           if (check.status === 403) {
             showMsg("auth-error", "Your account does not have the admin role.", "error");
-            await supabase.auth.signOut();
+            await sbClient.auth.signOut();
             return;
           }
           if (!check.ok) throw new Error(`Server returned ${check.status}`);
@@ -438,7 +439,7 @@
       const showAuthGate = async () => {
         accessToken = null;
         tenants = [];
-        await supabase.auth.signOut();
+        await sbClient.auth.signOut();
         document.getElementById("dashboard-section").style.display = "none";
         document.getElementById("auth-section").style.display = "block";
         document.getElementById("email-input").value = "";
@@ -538,22 +539,23 @@
 
       // ── Init ─────────────────────────────────────────────────────────────
 
-      try {
-        await initSupabase();
-        // Resume existing session if Supabase has one
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          const check = await fetch("/tenants", { headers: { "Authorization": `Bearer ${session.access_token}` } });
-          if (check.ok) {
-            accessToken = session.access_token;
-            showDashboard();
-            return;
+      (async () => {
+        try {
+          await initSupabase();
+          const { data: { session } } = await sbClient.auth.getSession();
+          if (session) {
+            const check = await fetch("/tenants", { headers: { "Authorization": `Bearer ${session.access_token}` } });
+            if (check.ok) {
+              accessToken = session.access_token;
+              showDashboard();
+              return;
+            }
           }
+        } catch (e) {
+          showMsg("auth-error", "Init error: " + e.message, "error");
         }
-      } catch (e) {
-        showMsg("auth-error", "Init error: " + e.message, "error");
-      }
-      document.getElementById("auth-section").style.display = "block";
+        document.getElementById("auth-section").style.display = "block";
+      })();
     </script>
   </body>
 </html>

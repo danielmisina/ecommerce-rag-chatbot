@@ -1,15 +1,14 @@
 import { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
-import { env } from "../config/env";
+import { verifyToken } from "../lib/verifyToken";
 
-export const adminAuth = (req: Request, res: Response, next: NextFunction): void => {
+export const adminAuth = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const token = req.headers.authorization?.replace("Bearer ", "");
   if (!token) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
   try {
-    const payload = jwt.verify(token, env.supabaseJwtSecret) as { app_metadata?: { role?: string } };
+    const payload = await verifyToken(token) as { app_metadata?: { role?: string } };
     if (payload.app_metadata?.role !== "admin") {
       res.status(403).json({ error: "Forbidden" });
       return;

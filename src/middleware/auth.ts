@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
 import { Pool } from "pg";
-import { env } from "../config/env";
+import { verifyToken } from "../lib/verifyToken";
 
 export interface AuthenticatedRequest extends Request {
   tenantId: string;
@@ -15,11 +14,16 @@ export const createTenantAuth = (pool: Pool) =>
       return;
     }
 
-    let payload: { sub: string; email?: string };
+    let payload: { sub?: string; email?: string };
     try {
-      payload = jwt.verify(token, env.supabaseJwtSecret) as { sub: string; email?: string };
+      payload = await verifyToken(token) as { sub?: string; email?: string };
     } catch {
       res.status(401).json({ error: "Invalid or expired token" });
+      return;
+    }
+
+    if (!payload.sub) {
+      res.status(401).json({ error: "Invalid token payload" });
       return;
     }
 
