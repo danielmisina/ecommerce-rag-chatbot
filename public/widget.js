@@ -19,6 +19,7 @@
       --cw-primary:    #2563eb;
       --cw-primary-dk: #1d4ed8;
       --cw-btn-bg:     linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      --cw-header-bg:  #f9fafb;
       position: fixed; bottom: 24px; right: 24px; z-index: 9999;
       display: flex; flex-direction: column; align-items: flex-end; gap: 12px;
     }
@@ -40,7 +41,7 @@
     #cw-panel.open { display: flex; }
 
     #cw-header {
-      padding: 14px 16px; border-bottom: 1px solid #e5e7eb; background: #f9fafb;
+      padding: 14px 16px; border-bottom: 1px solid #e5e7eb; background: var(--cw-header-bg);
       display: flex; align-items: center; gap: 8px;
     }
     #cw-header-text { flex: 1; }
@@ -148,6 +149,7 @@
       root.style.setProperty("--cw-primary-dk", darkenHex(s.primaryColor, 25));
     }
     if (s.buttonColor) root.style.setProperty("--cw-btn-bg", s.buttonColor);
+    if (s.headerColor) root.style.setProperty("--cw-header-bg", s.headerColor);
     if (s.title)    document.getElementById("cw-title").textContent    = s.title;
     if (s.subtitle) document.getElementById("cw-subtitle").textContent = s.subtitle;
     if (s.position === "bottom-left") {

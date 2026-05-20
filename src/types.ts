@@ -1,6 +1,7 @@
 export type WidgetSettings = {
   primaryColor?: string;
   buttonColor?: string;
+  headerColor?: string;
   title?: string;
   subtitle?: string;
   position?: "bottom-right" | "bottom-left";

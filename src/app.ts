@@ -130,6 +130,7 @@ export const createApp = (pool: Pool = defaultPool) => {
   const widgetSettingsSchema = z.object({
     primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
     buttonColor:  z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+    headerColor:  z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
     title:        z.string().max(60).optional(),
     subtitle:     z.string().max(100).optional(),
     position:     z.enum(["bottom-right", "bottom-left"]).optional(),

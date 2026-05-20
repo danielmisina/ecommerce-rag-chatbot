@@ -379,6 +379,14 @@
         </div>
 
         <div class="sm-field">
+          <label>Header background colour</label>
+          <div class="sm-color-row">
+            <input type="color" id="sm-header-picker" />
+            <input type="text"  id="sm-header-hex" maxlength="7" placeholder="#f9fafb" />
+          </div>
+        </div>
+
+        <div class="sm-field">
           <label>Chat title</label>
           <input type="text" id="sm-title" placeholder="🛍️ Product Assistant" style="width:100%" />
         </div>
@@ -398,6 +406,7 @@
 
         <div id="sm-msg" class="msg"></div>
         <div class="sm-actions">
+          <button class="btn-danger" id="sm-reset" style="margin-right:auto">Reset to defaults</button>
           <button class="btn-secondary" id="sm-cancel">Cancel</button>
           <button id="sm-save">Save</button>
         </div>
@@ -641,12 +650,14 @@
 
       let styleModalTenantId = null;
 
-      const smModal      = document.getElementById("style-modal");
-      const smPrimPicker = document.getElementById("sm-primary-picker");
-      const smPrimHex    = document.getElementById("sm-primary-hex");
-      const smBtnPicker  = document.getElementById("sm-btn-picker");
-      const smBtnHex     = document.getElementById("sm-btn-hex");
-      const smBtnPreview = document.getElementById("sm-btn-preview");
+      const smModal         = document.getElementById("style-modal");
+      const smPrimPicker    = document.getElementById("sm-primary-picker");
+      const smPrimHex       = document.getElementById("sm-primary-hex");
+      const smBtnPicker     = document.getElementById("sm-btn-picker");
+      const smBtnHex        = document.getElementById("sm-btn-hex");
+      const smBtnPreview    = document.getElementById("sm-btn-preview");
+      const smHeaderPicker  = document.getElementById("sm-header-picker");
+      const smHeaderHex     = document.getElementById("sm-header-hex");
 
       function syncColor(picker, hex, preview) {
         picker.addEventListener("input", () => {
@@ -660,8 +671,9 @@
           }
         });
       }
-      syncColor(smPrimPicker, smPrimHex, null);
-      syncColor(smBtnPicker,  smBtnHex,  smBtnPreview);
+      syncColor(smPrimPicker,   smPrimHex,   null);
+      syncColor(smBtnPicker,    smBtnHex,    smBtnPreview);
+      syncColor(smHeaderPicker, smHeaderHex, null);
 
       const openStyleModal = (tenant) => {
         styleModalTenantId = tenant.id;
@@ -669,9 +681,11 @@
         const s = tenant.widgetSettings || {};
         const primary = s.primaryColor || "#2563eb";
         const btn     = s.buttonColor  || "#667eea";
-        smPrimPicker.value = primary; smPrimHex.value = primary;
-        smBtnPicker.value  = btn;     smBtnHex.value  = btn;
+        const header  = s.headerColor  || "#f9fafb";
+        smPrimPicker.value   = primary; smPrimHex.value   = primary;
+        smBtnPicker.value    = btn;     smBtnHex.value    = btn;
         smBtnPreview.style.background = btn;
+        smHeaderPicker.value = header;  smHeaderHex.value = header;
         document.getElementById("sm-title").value    = s.title    || "";
         document.getElementById("sm-subtitle").value = s.subtitle || "";
         document.querySelector(`input[name="sm-position"][value="${s.position || "bottom-right"}"]`).checked = true;
@@ -688,8 +702,9 @@
         if (!styleModalTenantId) return;
         const position = document.querySelector('input[name="sm-position"]:checked').value;
         const body = {
-          primaryColor: smPrimHex.value || undefined,
-          buttonColor:  smBtnHex.value  || undefined,
+          primaryColor: smPrimHex.value    || undefined,
+          buttonColor:  smBtnHex.value     || undefined,
+          headerColor:  smHeaderHex.value  || undefined,
           title:        document.getElementById("sm-title").value.trim()    || undefined,
           subtitle:     document.getElementById("sm-subtitle").value.trim() || undefined,
           position,
@@ -723,6 +738,28 @@
 
       document.getElementById("sm-cancel").addEventListener("click", closeStyleModal);
       document.getElementById("sm-save").addEventListener("click", saveStyle);
+      document.getElementById("sm-reset").addEventListener("click", async () => {
+        if (!styleModalTenantId) return;
+        if (!confirm("Reset all widget styles to defaults?")) return;
+        const btn = document.getElementById("sm-reset");
+        btn.disabled = true;
+        try {
+          const res = await fetch(`/tenants/${encodeURIComponent(styleModalTenantId)}/settings`, {
+            method: "PATCH",
+            headers: apiHeaders(),
+            body: JSON.stringify({}),
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const t = tenants.find(t => t.id === styleModalTenantId);
+          if (t) t.widgetSettings = {};
+          showMsg("sm-msg", "Reset to defaults.", "success");
+          setTimeout(closeStyleModal, 800);
+        } catch (e) {
+          showMsg("sm-msg", "Error: " + e.message, "error");
+        } finally {
+          btn.disabled = false;
+        }
+      });
       smModal.addEventListener("click", (e) => { if (e.target === smModal) closeStyleModal(); });
 
       // ── Event wiring ─────────────────────────────────────────────────────
