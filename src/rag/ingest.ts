@@ -5,6 +5,7 @@ import productsJson from "../data/products.json";
 import { Product } from "../types";
 import { getEmbedding } from "./embedder";
 import { chunkMarkdown } from "./chunker";
+import { env } from "../config/env";
 
 const ARTICLES_DIR = path.resolve(__dirname, "../data/articles");
 
@@ -37,8 +38,16 @@ const rowToProduct = (row: ProductRow): Product => ({
 export const ingestProducts = async (pool: Pool, tenantId: string): Promise<number> => {
   const products = productsJson as Product[];
 
+  const { rows } = await pool.query<{ widget_key: string }>(
+    `SELECT widget_key FROM tenants WHERE id = $1`, [tenantId]
+  );
+  const widgetKey = rows[0]?.widget_key ?? "";
+
   for (const product of products) {
     const id = `${tenantId}-${product.id}`;
+    const url = widgetKey
+      ? `${env.siteUrl}/demo-shop?key=${widgetKey}&product=${encodeURIComponent(id)}`
+      : null;
     const text = `${product.title} ${product.description} ${product.brand} ${product.category}`;
     const embedding = await getEmbedding(text);
 
@@ -67,7 +76,7 @@ export const ingestProducts = async (pool: Pool, tenantId: string): Promise<numb
         product.currency,
         product.inStock,
         product.rating,
-        product.url ?? null,
+        url,
         embedding ? `[${embedding.join(",")}]` : null,
       ]
     );
