@@ -374,6 +374,7 @@
         s.dataset.widgetKey = key;
         s.dataset.shopUrl = "/demo-shop";
         document.body.appendChild(s);
+        document.addEventListener("cw:product-click", (e) => showDetail(e.detail.product.id));
       }
 
       // ── Helpers ──────────────────────────────────────────────────────────
