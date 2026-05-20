@@ -228,6 +228,14 @@
         if (emptyState) emptyState.remove();
       };
 
+      function renderMd(text) {
+        const esc = (s) => s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+        return esc(text)
+          .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+          .replace(/\*([^*\n]+?)\*/g, "<em>$1</em>")
+          .replace(/\n/g, "<br>");
+      }
+
       const addMessage = (text, isUser = false, products = [], citations = []) => {
         clearEmpty();
 
@@ -242,7 +250,7 @@
         } else {
           const content = document.createElement("div");
           content.className = "content";
-          content.textContent = text;
+          content.innerHTML = renderMd(text);
           bubble.appendChild(content);
 
           if (products && products.length > 0) {

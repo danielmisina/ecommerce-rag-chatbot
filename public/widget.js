@@ -221,6 +221,14 @@
     }
   });
 
+  function renderMd(text) {
+    const esc = (s) => s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    return esc(text)
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*([^*\n]+?)\*/g, "<em>$1</em>")
+      .replace(/\n/g, "<br>");
+  }
+
   function addMsg(text, type) {
     const row = document.createElement("div");
     row.className = `cw-msg-row ${type}`;
@@ -237,7 +245,7 @@
     row.className = "cw-msg-row bot";
     const bubble = document.createElement("div");
     bubble.className = "cw-bubble";
-    bubble.textContent = answer;
+    bubble.innerHTML = renderMd(answer);
     if (products.length > 0) {
       const list = document.createElement("div");
       list.className = "cw-products";
@@ -269,7 +277,7 @@
         <div class="cw-det-rating">${stars} ${p.rating || ""}</div>
       </div>
       <span class="${p.inStock ? "cw-det-instock" : "cw-det-oos"}">${p.inStock ? "In stock" : "Out of stock"}</span>
-      ${p.description ? `<div class="cw-det-desc">${p.description}</div>` : ""}
+      ${p.description ? `<div class="cw-det-desc">${renderMd(p.description)}</div>` : ""}
       ${p.url ? `<a class="cw-det-link" href="${p.url}" target="_blank" rel="noopener noreferrer">View in store →</a>` : ""}
     `;
     messages.style.display = "none";
