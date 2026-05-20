@@ -2,6 +2,7 @@
   const script = document.currentScript;
   const widgetKey = script.dataset.widgetKey;
   const apiBase = new URL(script.src).origin;
+  const shopUrl = script.dataset.shopUrl || "";
 
   if (!widgetKey) {
     console.error("[ChatWidget] Missing data-widget-key attribute.");
@@ -49,6 +50,8 @@
 
     .cw-products { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }
     .cw-product  { background: #dbeafe; border-radius: 6px; padding: 5px 8px; font-size: 0.8rem; }
+    .cw-product-link { display: block; color: inherit; text-decoration: none; cursor: pointer; }
+    .cw-product-link:hover { background: #bfdbfe; }
 
     .cw-typing { display: flex; gap: 4px; align-items: center; padding: 10px 13px; background: #f3f4f6; border-radius: 14px 14px 14px 3px; align-self: flex-start; }
     .cw-dot { width: 7px; height: 7px; border-radius: 50%; background: #9ca3af; animation: cw-bounce 1.2s infinite; }
@@ -160,8 +163,15 @@
       const list = document.createElement("div");
       list.className = "cw-products";
       products.forEach((p) => {
-        const item = document.createElement("div");
-        item.className = "cw-product";
+        let item;
+        if (shopUrl && p.id) {
+          item = document.createElement("a");
+          item.href = `${apiBase}${shopUrl}?key=${encodeURIComponent(widgetKey)}&product=${encodeURIComponent(p.id)}`;
+          item.className = "cw-product cw-product-link";
+        } else {
+          item = document.createElement("div");
+          item.className = "cw-product";
+        }
         item.textContent = `${p.title} — $${Number(p.price).toFixed(2)}`;
         list.appendChild(item);
       });

@@ -176,12 +176,58 @@
       }
       .state-msg .icon { font-size: 2.5rem; margin-bottom: 12px; }
 
+      /* ── Product detail ── */
+      #detail { display: none; max-width: 680px; }
+
+      .detail-back {
+        display: inline-flex; align-items: center; gap: 6px;
+        background: none; border: none; padding: 0; cursor: pointer;
+        color: #667eea; font-size: 0.9rem; font-weight: 500; margin-bottom: 28px;
+      }
+      .detail-back:hover { text-decoration: underline; }
+
+      .detail-hero {
+        display: flex; gap: 28px; align-items: flex-start; margin-bottom: 24px;
+      }
+
+      .detail-emoji {
+        width: 140px; height: 140px; flex-shrink: 0; font-size: 4.5rem;
+        background: #f3f4f6; border-radius: 16px;
+        display: flex; align-items: center; justify-content: center;
+      }
+
+      .detail-info { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+      .detail-title { font-size: 1.35rem; font-weight: 700; line-height: 1.25; }
+      .detail-brand { font-size: 0.85rem; color: #9ca3af; }
+      .detail-price { font-size: 1.7rem; font-weight: 800; color: #1f2937; margin-top: 4px; }
+      .detail-rating { font-size: 0.875rem; color: #f59e0b; }
+
+      .detail-description {
+        background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px;
+        padding: 18px 22px; font-size: 0.95rem; line-height: 1.65; color: #374151;
+      }
+      .detail-description-label {
+        font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.08em; color: #9ca3af; margin-bottom: 12px;
+      }
+
+      /* ── Empty/loading states ── */
+      .state-msg {
+        text-align: center;
+        padding: 60px 20px;
+        color: #9ca3af;
+        font-size: 1rem;
+      }
+      .state-msg .icon { font-size: 2.5rem; margin-bottom: 12px; }
+
       /* ── Responsive ── */
       @media (max-width: 600px) {
         header { padding: 0 16px; }
         .tabs { padding: 16px 16px 0; }
         main { padding: 16px 16px 80px; }
         #setup-banner { padding: 12px 16px; }
+        .detail-hero { flex-direction: column; }
+        .detail-emoji { width: 100%; height: 120px; }
       }
     </style>
   </head>
@@ -204,6 +250,7 @@
     <div class="tabs" id="tabs"></div>
 
     <main>
+      <div id="detail"></div>
       <div id="product-count"></div>
       <div class="grid" id="grid">
         <div class="state-msg"><div class="icon">🏊 🚴 🏃</div>Enter your widget key above to load the product catalog.</div>
@@ -251,8 +298,12 @@
           renderTabs();
           renderGrid();
           injectWidget(key);
-          // Update URL without reload
-          history.replaceState(null, "", `?key=${encodeURIComponent(key)}`);
+          const existingProduct = new URLSearchParams(location.search).get("product");
+          const newSearch = existingProduct
+            ? `?key=${encodeURIComponent(key)}&product=${encodeURIComponent(existingProduct)}`
+            : `?key=${encodeURIComponent(key)}`;
+          history.replaceState(null, "", newSearch);
+          if (existingProduct) showDetail(existingProduct);
         } catch (e) {
           document.getElementById("grid").innerHTML = `<div class="state-msg"><div class="icon">❌</div>${e.message}</div>`;
           document.getElementById("setup-banner").style.display = "flex";
@@ -291,7 +342,7 @@
         }
 
         document.getElementById("grid").innerHTML = filtered.map(p => `
-          <div class="card">
+          <div class="card" data-id="${esc(p.id)}" style="cursor:pointer">
             <div class="card-img">${CATEGORY_EMOJI[p.category] || "📦"}</div>
             <div class="card-body">
               <div class="card-category">${esc(CATEGORY_LABEL[p.category] || p.category)}</div>
@@ -304,11 +355,14 @@
                 <div class="card-rating">${"★".repeat(Math.round(p.rating))} ${p.rating}</div>
               </div>
               ${p.inStock
-                ? `<button class="btn-cart" onclick="addToCart('${esc(p.title)}')">Add to cart</button>`
+                ? `<button class="btn-cart" onclick="event.stopPropagation();addToCart('${esc(p.title)}')">Add to cart</button>`
                 : `<span class="badge-oos">Out of stock</span>`}
             </div>
           </div>
         `).join("");
+        document.getElementById("grid").querySelectorAll(".card").forEach(card => {
+          card.addEventListener("click", () => showDetail(card.dataset.id));
+        });
       }
 
       // ── Widget injection ─────────────────────────────────────────────────
@@ -318,6 +372,7 @@
         const s = document.createElement("script");
         s.src = "/widget.js";
         s.dataset.widgetKey = key;
+        s.dataset.shopUrl = "/demo-shop";
         document.body.appendChild(s);
       }
 
@@ -329,6 +384,48 @@
 
       function addToCart(title) {
         alert(`"${title}" added to cart!\n\n(This is a demo store — no real checkout.)`);
+      }
+
+      function showDetail(id) {
+        const p = allProducts.find(x => x.id === id);
+        if (!p) return;
+
+        document.getElementById("tabs").style.display = "none";
+        document.getElementById("product-count").style.display = "none";
+        document.getElementById("grid").style.display = "none";
+
+        const detail = document.getElementById("detail");
+        detail.style.display = "block";
+        detail.innerHTML = `
+          <button class="detail-back" id="detail-back-btn">← Back to catalog</button>
+          <div class="detail-hero">
+            <div class="detail-emoji">${CATEGORY_EMOJI[p.category] || "📦"}</div>
+            <div class="detail-info">
+              <div class="card-category">${esc(CATEGORY_LABEL[p.category] || p.category)}</div>
+              <div class="detail-title">${esc(p.title)}</div>
+              <div class="detail-brand">${esc(p.brand)}</div>
+              <div class="detail-price">$${Number(p.price).toFixed(2)}</div>
+              <div class="detail-rating">${"★".repeat(Math.round(p.rating))} ${p.rating}</div>
+              ${p.inStock
+                ? `<button class="btn-cart" style="margin-top:8px;width:fit-content" onclick="addToCart('${esc(p.title)}')">Add to cart</button>`
+                : `<span class="badge-oos" style="margin-top:8px">Out of stock</span>`}
+            </div>
+          </div>
+          <div class="detail-description">
+            <div class="detail-description-label">About this product</div>
+            ${esc(p.description)}
+          </div>
+        `;
+
+        document.getElementById("detail-back-btn").addEventListener("click", () => {
+          detail.style.display = "none";
+          document.getElementById("tabs").style.display = "";
+          document.getElementById("product-count").style.display = "";
+          document.getElementById("grid").style.display = "";
+          history.pushState(null, "", `?key=${encodeURIComponent(widgetKey)}`);
+        });
+
+        history.pushState(null, "", `?key=${encodeURIComponent(widgetKey)}&product=${encodeURIComponent(id)}`);
       }
     </script>
   </body>
