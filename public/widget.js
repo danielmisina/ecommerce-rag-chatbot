@@ -167,6 +167,8 @@
         if (shopUrl && p.id) {
           item = document.createElement("a");
           item.href = `${apiBase}${shopUrl}?key=${encodeURIComponent(widgetKey)}&product=${encodeURIComponent(p.id)}`;
+          item.target = "_blank";
+          item.rel = "noopener noreferrer";
           item.className = "cw-product cw-product-link";
         } else {
           item = document.createElement("div");
