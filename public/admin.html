@@ -231,6 +231,52 @@
         background: #4b5563;
       }
 
+      /* ── Style modal ── */
+
+      #style-modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.45);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+      }
+
+      #style-modal.open { display: flex; }
+
+      .sm-card {
+        background: #fff;
+        border-radius: 16px;
+        padding: 28px 32px;
+        width: 420px;
+        max-width: 95vw;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      }
+
+      .sm-card h2 {
+        margin: 0 0 20px;
+        font-size: 1.1rem;
+        font-weight: 700;
+      }
+
+      .sm-field { margin-bottom: 16px; }
+      .sm-field label { display: block; font-size: 0.85rem; font-weight: 500; color: #374151; margin-bottom: 6px; }
+
+      .sm-color-row { display: flex; gap: 8px; align-items: center; }
+      .sm-color-row input[type="color"] { width: 40px; height: 36px; padding: 2px; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer; flex-shrink: 0; }
+      .sm-color-row input[type="text"] { width: 100px; flex: none; }
+
+      .sm-preview-btn {
+        width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+        border: 2px solid #e5e7eb;
+      }
+
+      .sm-radio-row { display: flex; gap: 20px; margin-top: 4px; font-size: 0.875rem; }
+      .sm-radio-row label { display: flex; align-items: center; gap: 6px; font-weight: 400; cursor: pointer; }
+
+      .sm-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+
       /* ── Status messages ── */
 
       .msg {
@@ -310,6 +356,54 @@
       </div>
     </div>
 
+    <!-- ── Style modal ────────────────────────────────────────────────────── -->
+    <div id="style-modal">
+      <div class="sm-card">
+        <h2>Widget Style — <span id="sm-tenant-name"></span></h2>
+
+        <div class="sm-field">
+          <label>Primary colour <small style="color:#9ca3af">(send button, user messages)</small></label>
+          <div class="sm-color-row">
+            <input type="color" id="sm-primary-picker" />
+            <input type="text"  id="sm-primary-hex" maxlength="7" placeholder="#2563eb" />
+          </div>
+        </div>
+
+        <div class="sm-field">
+          <label>Trigger button colour</label>
+          <div class="sm-color-row">
+            <input type="color" id="sm-btn-picker" />
+            <input type="text"  id="sm-btn-hex" maxlength="7" placeholder="#667eea" />
+            <div id="sm-btn-preview" class="sm-preview-btn"></div>
+          </div>
+        </div>
+
+        <div class="sm-field">
+          <label>Chat title</label>
+          <input type="text" id="sm-title" placeholder="🛍️ Product Assistant" style="width:100%" />
+        </div>
+
+        <div class="sm-field">
+          <label>Subtitle</label>
+          <input type="text" id="sm-subtitle" placeholder="Ask about products, prices, or features" style="width:100%" />
+        </div>
+
+        <div class="sm-field">
+          <label>Position</label>
+          <div class="sm-radio-row">
+            <label><input type="radio" name="sm-position" value="bottom-right" checked /> Bottom-right</label>
+            <label><input type="radio" name="sm-position" value="bottom-left" /> Bottom-left</label>
+          </div>
+        </div>
+
+        <div id="sm-msg" class="msg"></div>
+        <div class="sm-actions">
+          <button class="btn-secondary" id="sm-cancel">Cancel</button>
+          <button id="sm-save">Save</button>
+        </div>
+      </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
       const { createClient } = supabase;
@@ -366,6 +460,7 @@
                 <div class="tenant-id" title="${escHtml(t.widgetKey)}">${escHtml(t.widgetKey)}</div>
               </div>
               <div style="display:flex;gap:6px;flex-shrink:0">
+                <button class="btn-secondary btn-style" style="padding:6px 10px;font-size:0.8rem" data-id="${escHtml(t.id)}">Style</button>
                 <button class="btn-secondary btn-copy" style="padding:6px 10px;font-size:0.8rem" data-key="${escHtml(t.widgetKey)}">Copy snippet</button>
                 <button class="btn-danger" data-id="${escHtml(t.id)}" data-name="${escHtml(t.name)}">Delete</button>
               </div>
@@ -381,6 +476,12 @@
                 btn.textContent = "Copied!";
                 setTimeout(() => { btn.textContent = "Copy snippet"; }, 2000);
               });
+            });
+          });
+          ul.querySelectorAll(".btn-style").forEach(btn => {
+            btn.addEventListener("click", () => {
+              const tenant = tenants.find(t => t.id === btn.dataset.id);
+              if (tenant) openStyleModal(tenant);
             });
           });
         }
@@ -535,6 +636,94 @@
           articlesBtn.disabled = false;
         }
       };
+
+      // ── Style modal ──────────────────────────────────────────────────────
+
+      let styleModalTenantId = null;
+
+      const smModal      = document.getElementById("style-modal");
+      const smPrimPicker = document.getElementById("sm-primary-picker");
+      const smPrimHex    = document.getElementById("sm-primary-hex");
+      const smBtnPicker  = document.getElementById("sm-btn-picker");
+      const smBtnHex     = document.getElementById("sm-btn-hex");
+      const smBtnPreview = document.getElementById("sm-btn-preview");
+
+      function syncColor(picker, hex, preview) {
+        picker.addEventListener("input", () => {
+          hex.value = picker.value;
+          if (preview) preview.style.background = picker.value;
+        });
+        hex.addEventListener("input", () => {
+          if (/^#[0-9a-fA-F]{6}$/.test(hex.value)) {
+            picker.value = hex.value;
+            if (preview) preview.style.background = hex.value;
+          }
+        });
+      }
+      syncColor(smPrimPicker, smPrimHex, null);
+      syncColor(smBtnPicker,  smBtnHex,  smBtnPreview);
+
+      const openStyleModal = (tenant) => {
+        styleModalTenantId = tenant.id;
+        document.getElementById("sm-tenant-name").textContent = tenant.name;
+        const s = tenant.widgetSettings || {};
+        const primary = s.primaryColor || "#2563eb";
+        const btn     = s.buttonColor  || "#667eea";
+        smPrimPicker.value = primary; smPrimHex.value = primary;
+        smBtnPicker.value  = btn;     smBtnHex.value  = btn;
+        smBtnPreview.style.background = btn;
+        document.getElementById("sm-title").value    = s.title    || "";
+        document.getElementById("sm-subtitle").value = s.subtitle || "";
+        document.querySelector(`input[name="sm-position"][value="${s.position || "bottom-right"}"]`).checked = true;
+        hideMsg("sm-msg");
+        smModal.classList.add("open");
+      };
+
+      const closeStyleModal = () => {
+        smModal.classList.remove("open");
+        styleModalTenantId = null;
+      };
+
+      const saveStyle = async () => {
+        if (!styleModalTenantId) return;
+        const position = document.querySelector('input[name="sm-position"]:checked').value;
+        const body = {
+          primaryColor: smPrimHex.value || undefined,
+          buttonColor:  smBtnHex.value  || undefined,
+          title:        document.getElementById("sm-title").value.trim()    || undefined,
+          subtitle:     document.getElementById("sm-subtitle").value.trim() || undefined,
+          position,
+        };
+        // strip undefined
+        Object.keys(body).forEach(k => body[k] === undefined && delete body[k]);
+        hideMsg("sm-msg");
+        const saveBtn = document.getElementById("sm-save");
+        saveBtn.disabled = true;
+        try {
+          const res = await fetch(`/tenants/${encodeURIComponent(styleModalTenantId)}/settings`, {
+            method: "PATCH",
+            headers: apiHeaders(),
+            body: JSON.stringify(body),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || `HTTP ${res.status}`);
+          }
+          const { settings } = await res.json();
+          const t = tenants.find(t => t.id === styleModalTenantId);
+          if (t) t.widgetSettings = settings;
+          showMsg("sm-msg", "Saved!", "success");
+          setTimeout(closeStyleModal, 800);
+        } catch (e) {
+          showMsg("sm-msg", "Error: " + e.message, "error");
+        } finally {
+          saveBtn.disabled = false;
+        }
+      };
+
+      document.getElementById("sm-cancel").addEventListener("click", closeStyleModal);
+      document.getElementById("sm-save").addEventListener("click", saveStyle);
+      smModal.addEventListener("click", (e) => { if (e.target === smModal) closeStyleModal(); });
 
       // ── Event wiring ─────────────────────────────────────────────────────
 

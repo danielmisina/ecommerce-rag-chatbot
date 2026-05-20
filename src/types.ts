@@ -1,7 +1,16 @@
+export type WidgetSettings = {
+  primaryColor?: string;
+  buttonColor?: string;
+  title?: string;
+  subtitle?: string;
+  position?: "bottom-right" | "bottom-left";
+};
+
 export type Tenant = {
   id: string;
   name: string;
   widgetKey: string;
+  widgetSettings: WidgetSettings;
   createdAt: string;
 };
 
