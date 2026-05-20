@@ -8,6 +8,7 @@ import { generateAnswer } from "./rag/generator";
 import { retrieveProducts, retrieveDocuments } from "./rag/retriever";
 import { createTenantAuth, AuthenticatedRequest } from "./middleware/auth";
 import { adminAuth } from "./middleware/adminAuth";
+import { env } from "./config/env";
 import { ChatResponse, Tenant } from "./types";
 
 const chatSchema = z.object({
@@ -54,6 +55,10 @@ export const createApp = (pool: Pool = defaultPool) => {
 
   app.get("/admin-ui", (_req, res) => {
     res.sendFile(adminUiPath);
+  });
+
+  app.get("/admin-config", (_req, res) => {
+    res.json({ supabaseUrl: env.supabaseUrl, supabaseAnonKey: env.supabaseAnonKey });
   });
 
   app.get("/health", (_req, res) => {

@@ -6,9 +6,8 @@ import jwt from "jsonwebtoken";
 
 const MOCK_TENANT_UUID = "550e8400-e29b-41d4-a716-446655440000";
 
-const { mockPool, TEST_JWT_SECRET, TEST_ADMIN_KEY, TEST_TENANT_ID } = vi.hoisted(() => {
+const { mockPool, TEST_JWT_SECRET, TEST_TENANT_ID } = vi.hoisted(() => {
   const TEST_JWT_SECRET = "test-jwt-secret";
-  const TEST_ADMIN_KEY = "test-admin-key";
   const TEST_TENANT_ID = "test-tenant-id";
   const mockRows = [
     { id: "test-tenant-id-tri-s001", title: "Orca Athlex Flex Wetsuit", description: "Full-sleeve open-water triathlon wetsuit.", category: "swim", brand: "Orca", price: "299.99", currency: "USD", in_stock: true, rating: "4.7", url: null },
@@ -40,7 +39,7 @@ const { mockPool, TEST_JWT_SECRET, TEST_ADMIN_KEY, TEST_TENANT_ID } = vi.hoisted
     })
   };
 
-  return { mockPool, TEST_JWT_SECRET, TEST_ADMIN_KEY, TEST_TENANT_ID };
+  return { mockPool, TEST_JWT_SECRET, TEST_TENANT_ID };
 });
 
 vi.mock("../src/db/client", () => ({ pool: mockPool }));
@@ -54,7 +53,8 @@ vi.mock("../src/config/env", () => ({
     openAiEmbeddingModel: "text-embedding-3-small",
     databaseUrl: "postgres://test",
     supabaseJwtSecret: TEST_JWT_SECRET,
-    adminApiKey: TEST_ADMIN_KEY,
+    supabaseUrl: "https://test.supabase.co",
+    supabaseAnonKey: "test-anon-key",
   }
 }));
 
@@ -65,6 +65,7 @@ import { createApp } from "../src/app";
 describe("RAG API", () => {
   const app = createApp();
   const tenantToken = jwt.sign({ sub: TEST_TENANT_ID, email: "test@example.com" }, TEST_JWT_SECRET);
+  const adminToken = jwt.sign({ sub: "admin-user-id", email: "admin@example.com", app_metadata: { role: "admin" } }, TEST_JWT_SECRET);
 
   it("returns API metadata at root", async () => {
     const res = await request(app).get("/");
@@ -98,15 +99,15 @@ describe("RAG API", () => {
     expect(res.status).toBe(401);
   });
 
-  it("rejects POST /tenants without admin key", async () => {
+  it("rejects POST /tenants without admin token", async () => {
     const res = await request(app)
       .post("/tenants")
-      .set("Authorization", `Bearer wrong-key`)
+      .set("Authorization", `Bearer ${tenantToken}`)
       .send({ name: "acme" });
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(403);
   });
 
-  it("rejects GET /tenants without admin key", async () => {
+  it("rejects GET /tenants without token", async () => {
     const res = await request(app).get("/tenants");
     expect(res.status).toBe(401);
   });
@@ -116,7 +117,7 @@ describe("RAG API", () => {
   it("pre-provisions a tenant", async () => {
     const res = await request(app)
       .post("/tenants")
-      .set("Authorization", `Bearer ${TEST_ADMIN_KEY}`)
+      .set("Authorization", `Bearer ${adminToken}`)
       .send({ id: MOCK_TENANT_UUID, name: "acme" });
     expect(res.status).toBe(201);
     expect(res.body.tenant).toMatchObject({ id: MOCK_TENANT_UUID, name: "acme" });
@@ -125,7 +126,7 @@ describe("RAG API", () => {
   it("lists tenants", async () => {
     const res = await request(app)
       .get("/tenants")
-      .set("Authorization", `Bearer ${TEST_ADMIN_KEY}`);
+      .set("Authorization", `Bearer ${adminToken}`);
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.tenants)).toBe(true);
   });
@@ -133,7 +134,7 @@ describe("RAG API", () => {
   it("deletes a tenant", async () => {
     const res = await request(app)
       .delete(`/tenants/${MOCK_TENANT_UUID}`)
-      .set("Authorization", `Bearer ${TEST_ADMIN_KEY}`);
+      .set("Authorization", `Bearer ${adminToken}`);
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
   });
@@ -181,24 +182,31 @@ describe("RAG API", () => {
       expect(res.text).toContain("Admin Dashboard");
     });
 
-    it("rejects product ingest without admin key", async () => {
+    it("rejects product ingest with invalid token", async () => {
       const res = await request(app)
         .post(`/admin/ingest/${MOCK_TENANT_UUID}`)
-        .set("Authorization", "Bearer wrong-key");
+        .set("Authorization", "Bearer not-a-token");
       expect(res.status).toBe(401);
     });
 
-    it("rejects article ingest without admin key", async () => {
+    it("rejects product ingest with non-admin token", async () => {
+      const res = await request(app)
+        .post(`/admin/ingest/${MOCK_TENANT_UUID}`)
+        .set("Authorization", `Bearer ${tenantToken}`);
+      expect(res.status).toBe(403);
+    });
+
+    it("rejects article ingest with invalid token", async () => {
       const res = await request(app)
         .post(`/admin/ingest/articles/${MOCK_TENANT_UUID}`)
-        .set("Authorization", "Bearer wrong-key");
+        .set("Authorization", "Bearer not-a-token");
       expect(res.status).toBe(401);
     });
 
     it("rejects invalid tenantId (not a UUID)", async () => {
       const res = await request(app)
         .post("/admin/ingest/not-a-uuid")
-        .set("Authorization", `Bearer ${TEST_ADMIN_KEY}`);
+        .set("Authorization", `Bearer ${adminToken}`);
       expect(res.status).toBe(400);
       expect(res.body.error).toContain("UUID");
     });
@@ -206,7 +214,7 @@ describe("RAG API", () => {
     it("admin ingests products for a specific tenant", async () => {
       const res = await request(app)
         .post(`/admin/ingest/${MOCK_TENANT_UUID}`)
-        .set("Authorization", `Bearer ${TEST_ADMIN_KEY}`);
+        .set("Authorization", `Bearer ${adminToken}`);
       expect(res.status).toBe(200);
       expect(res.body.ok).toBe(true);
       expect(res.body.count).toBe(27);
@@ -215,7 +223,7 @@ describe("RAG API", () => {
     it("admin ingests articles for a specific tenant", async () => {
       const res = await request(app)
         .post(`/admin/ingest/articles/${MOCK_TENANT_UUID}`)
-        .set("Authorization", `Bearer ${TEST_ADMIN_KEY}`);
+        .set("Authorization", `Bearer ${adminToken}`);
       expect(res.status).toBe(200);
       expect(res.body.ok).toBe(true);
       expect(res.body.count).toBeGreaterThan(0);

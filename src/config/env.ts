@@ -9,5 +9,6 @@ export const env = {
   openAiEmbeddingModel: process.env.OPENAI_EMBEDDING_MODEL ?? "text-embedding-3-small",
   databaseUrl: process.env.DATABASE_URL ?? "postgres://raguser:ragpass@localhost:5432/ragdb",
   supabaseJwtSecret: process.env.SUPABASE_JWT_SECRET ?? "dev-jwt-secret",
-  adminApiKey: process.env.ADMIN_API_KEY ?? "dev-admin-key",
+  supabaseUrl: process.env.SUPABASE_URL ?? "",
+  supabaseAnonKey: process.env.SUPABASE_ANON_KEY ?? "",
 };

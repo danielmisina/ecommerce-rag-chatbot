@@ -47,6 +47,18 @@
         font-size: 0.9rem;
       }
 
+      .field {
+        margin-bottom: 12px;
+      }
+
+      .field label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 500;
+        margin-bottom: 4px;
+        color: #374151;
+      }
+
       /* ── Dashboard ── */
 
       #dashboard-section {
@@ -133,6 +145,7 @@
       }
 
       input[type="text"],
+      input[type="email"],
       input[type="password"] {
         flex: 1;
         padding: 10px 12px;
@@ -140,10 +153,10 @@
         border-radius: 8px;
         font-size: 0.9rem;
         font-family: inherit;
+        width: 100%;
       }
 
-      input[type="text"]:focus,
-      input[type="password"]:focus {
+      input:focus {
         outline: none;
         border-color: #2563eb;
         box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
@@ -246,8 +259,15 @@
     <!-- ── Auth gate ─────────────────────────────────────────────────────── -->
     <div id="auth-section" class="card">
       <h1>Admin Dashboard</h1>
-      <p>Enter your admin API key to continue.</p>
-      <input id="api-key-input" type="password" placeholder="Admin API key" autocomplete="current-password" />
+      <p>Sign in with your Supabase account. You must have the <code>admin</code> role in <code>app_metadata</code>.</p>
+      <div class="field">
+        <label for="email-input">Email</label>
+        <input id="email-input" type="email" placeholder="admin@example.com" autocomplete="email" />
+      </div>
+      <div class="field">
+        <label for="password-input">Password</label>
+        <input id="password-input" type="password" placeholder="••••••••" autocomplete="current-password" />
+      </div>
       <div id="auth-error" class="msg error" style="margin-bottom: 0;"></div>
       <button id="sign-in-btn" style="width: 100%; margin-top: 12px;">Sign In</button>
     </div>
@@ -290,14 +310,27 @@
       </div>
     </div>
 
-    <script>
-      let apiKey = sessionStorage.getItem("adminKey") || "";
+    <script type="module">
+      import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
+      // ── Bootstrap Supabase client ────────────────────────────────────────
+
+      let supabase = null;
+      let accessToken = null;
       let tenants = [];
+
+      async function initSupabase() {
+        const res = await fetch("/admin-config");
+        if (!res.ok) throw new Error("Could not load Supabase config from server.");
+        const { supabaseUrl, supabaseAnonKey } = await res.json();
+        if (!supabaseUrl || !supabaseAnonKey) throw new Error("Supabase URL or anon key not configured on server.");
+        supabase = createClient(supabaseUrl, supabaseAnonKey);
+      }
 
       // ── Helpers ──────────────────────────────────────────────────────────
 
       const apiHeaders = () => ({
-        "Authorization": `Bearer ${apiKey}`,
+        "Authorization": `Bearer ${accessToken}`,
         "Content-Type": "application/json"
       });
 
@@ -313,6 +346,10 @@
         el.textContent = "";
       };
 
+      const escHtml = (str) => String(str).replace(/[&<>"']/g, c => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      }[c]));
+
       // ── Tenant rendering ─────────────────────────────────────────────────
 
       const renderTenantList = () => {
@@ -326,9 +363,12 @@
                 <div class="tenant-name">${escHtml(t.name)}</div>
                 <div class="tenant-id">${escHtml(t.id)}</div>
               </div>
-              <button class="btn-danger" onclick="deleteTenant('${escHtml(t.id)}', '${escHtml(t.name)}')">Delete</button>
+              <button class="btn-danger" data-id="${escHtml(t.id)}" data-name="${escHtml(t.name)}">Delete</button>
             </li>
           `).join("");
+          ul.querySelectorAll(".btn-danger").forEach(btn => {
+            btn.addEventListener("click", () => deleteTenant(btn.dataset.id, btn.dataset.name));
+          });
         }
       };
 
@@ -339,10 +379,6 @@
           tenants.map(t => `<option value="${escHtml(t.id)}">${escHtml(t.name)}</option>`).join("");
         if (prev && tenants.find(t => t.id === prev)) sel.value = prev;
       };
-
-      const escHtml = (str) => str.replace(/[&<>"']/g, c => ({
-        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
-      }[c]));
 
       // ── API calls ────────────────────────────────────────────────────────
 
@@ -361,26 +397,32 @@
       };
 
       const signIn = async () => {
-        const key = document.getElementById("api-key-input").value.trim();
-        if (!key) return;
+        const email = document.getElementById("email-input").value.trim();
+        const password = document.getElementById("password-input").value;
+        if (!email || !password) return;
         hideMsg("auth-error");
         const btn = document.getElementById("sign-in-btn");
         btn.disabled = true;
         btn.textContent = "Signing in…";
         try {
-          const res = await fetch("/tenants", {
-            headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" }
-          });
-          if (res.status === 401) {
-            showMsg("auth-error", "Invalid API key.", "error");
+          const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+          if (error) {
+            showMsg("auth-error", error.message, "error");
             return;
           }
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          apiKey = key;
-          sessionStorage.setItem("adminKey", key);
+          // Verify admin role by calling a protected endpoint
+          const token = data.session.access_token;
+          const check = await fetch("/tenants", { headers: { "Authorization": `Bearer ${token}` } });
+          if (check.status === 403) {
+            showMsg("auth-error", "Your account does not have the admin role.", "error");
+            await supabase.auth.signOut();
+            return;
+          }
+          if (!check.ok) throw new Error(`Server returned ${check.status}`);
+          accessToken = token;
           showDashboard();
         } catch (e) {
-          showMsg("auth-error", "Connection error: " + e.message, "error");
+          showMsg("auth-error", "Error: " + e.message, "error");
         } finally {
           btn.disabled = false;
           btn.textContent = "Sign In";
@@ -393,13 +435,14 @@
         await loadTenants();
       };
 
-      const showAuthGate = () => {
-        apiKey = "";
-        sessionStorage.removeItem("adminKey");
+      const showAuthGate = async () => {
+        accessToken = null;
         tenants = [];
+        await supabase.auth.signOut();
         document.getElementById("dashboard-section").style.display = "none";
         document.getElementById("auth-section").style.display = "block";
-        document.getElementById("api-key-input").value = "";
+        document.getElementById("email-input").value = "";
+        document.getElementById("password-input").value = "";
         hideMsg("auth-error");
       };
 
@@ -482,7 +525,7 @@
       // ── Event wiring ─────────────────────────────────────────────────────
 
       document.getElementById("sign-in-btn").addEventListener("click", signIn);
-      document.getElementById("api-key-input").addEventListener("keydown", e => {
+      document.getElementById("password-input").addEventListener("keydown", e => {
         if (e.key === "Enter") signIn();
       });
       document.getElementById("sign-out-btn").addEventListener("click", showAuthGate);
@@ -495,11 +538,22 @@
 
       // ── Init ─────────────────────────────────────────────────────────────
 
-      if (apiKey) {
-        showDashboard();
-      } else {
-        document.getElementById("auth-section").style.display = "block";
+      try {
+        await initSupabase();
+        // Resume existing session if Supabase has one
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          const check = await fetch("/tenants", { headers: { "Authorization": `Bearer ${session.access_token}` } });
+          if (check.ok) {
+            accessToken = session.access_token;
+            showDashboard();
+            return;
+          }
+        }
+      } catch (e) {
+        showMsg("auth-error", "Init error: " + e.message, "error");
       }
+      document.getElementById("auth-section").style.display = "block";
     </script>
   </body>
 </html>
