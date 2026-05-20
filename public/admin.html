@@ -363,12 +363,25 @@
               <div class="tenant-info">
                 <div class="tenant-name">${escHtml(t.name)}</div>
                 <div class="tenant-id">${escHtml(t.id)}</div>
+                <div class="tenant-id" title="${escHtml(t.widgetKey)}">${escHtml(t.widgetKey)}</div>
               </div>
-              <button class="btn-danger" data-id="${escHtml(t.id)}" data-name="${escHtml(t.name)}">Delete</button>
+              <div style="display:flex;gap:6px;flex-shrink:0">
+                <button class="btn-secondary btn-copy" style="padding:6px 10px;font-size:0.8rem" data-key="${escHtml(t.widgetKey)}">Copy snippet</button>
+                <button class="btn-danger" data-id="${escHtml(t.id)}" data-name="${escHtml(t.name)}">Delete</button>
+              </div>
             </li>
           `).join("");
           ul.querySelectorAll(".btn-danger").forEach(btn => {
             btn.addEventListener("click", () => deleteTenant(btn.dataset.id, btn.dataset.name));
+          });
+          ul.querySelectorAll(".btn-copy").forEach(btn => {
+            btn.addEventListener("click", () => {
+              const snippet = `<script src="${window.location.origin}/widget.js" data-widget-key="${btn.dataset.key}"><\/script>`;
+              navigator.clipboard.writeText(snippet).then(() => {
+                btn.textContent = "Copied!";
+                setTimeout(() => { btn.textContent = "Copy snippet"; }, 2000);
+              });
+            });
           });
         }
       };

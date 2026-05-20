@@ -8,6 +8,7 @@ import { generateAnswer } from "./rag/generator";
 import { retrieveProducts, retrieveDocuments } from "./rag/retriever";
 import { createTenantAuth, AuthenticatedRequest } from "./middleware/auth";
 import { adminAuth } from "./middleware/adminAuth";
+import { createWidgetAuth } from "./middleware/widgetAuth";
 import { env } from "./config/env";
 import { ChatResponse, Tenant } from "./types";
 
@@ -26,6 +27,7 @@ export const createApp = (pool: Pool = defaultPool) => {
   app.use(express.json());
   const chatUiPath = path.resolve(process.cwd(), "public", "chat.html");
   const tenantAuth = createTenantAuth(pool);
+  const widgetAuth = createWidgetAuth(pool);
 
   app.get("/", (_req, res) => {
     res.json({
@@ -41,6 +43,8 @@ export const createApp = (pool: Pool = defaultPool) => {
         "POST /ingest",
         "POST /ingest/articles",
         "POST /chat",
+        "POST /widget/chat",
+        "GET /widget.js",
         "GET /chat-ui",
         "GET /admin-ui"
       ]
@@ -55,6 +59,11 @@ export const createApp = (pool: Pool = defaultPool) => {
 
   app.get("/admin-ui", (_req, res) => {
     res.sendFile(adminUiPath);
+  });
+
+  app.get("/widget.js", (_req, res) => {
+    res.setHeader("Content-Type", "application/javascript");
+    res.sendFile(path.resolve(process.cwd(), "public", "widget.js"));
   });
 
   app.get("/admin-config", (_req, res) => {
@@ -73,25 +82,26 @@ export const createApp = (pool: Pool = defaultPool) => {
       return res.status(400).json({ error: "Invalid request payload" });
     }
 
-    const result = await pool.query<{ id: string; name: string; created_at: string }>(
+    const result = await pool.query<{ id: string; name: string; widget_key: string; created_at: string }>(
       `INSERT INTO tenants (id, name) VALUES ($1, $2)
        ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name
-       RETURNING id, name, created_at`,
+       RETURNING id, name, widget_key, created_at`,
       [parsed.data.id, parsed.data.name]
     );
 
     const row = result.rows[0];
-    const tenant: Tenant = { id: row.id, name: row.name, createdAt: row.created_at };
+    const tenant: Tenant = { id: row.id, name: row.name, widgetKey: row.widget_key, createdAt: row.created_at };
     return res.status(201).json({ tenant });
   });
 
   app.get("/tenants", adminAuth, async (_req, res) => {
-    const result = await pool.query<{ id: string; name: string; created_at: string }>(
-      `SELECT id, name, created_at FROM tenants ORDER BY created_at`
+    const result = await pool.query<{ id: string; name: string; widget_key: string; created_at: string }>(
+      `SELECT id, name, widget_key, created_at FROM tenants ORDER BY created_at`
     );
     const tenants: Tenant[] = result.rows.map((row) => ({
       id: row.id,
       name: row.name,
+      widgetKey: row.widget_key,
       createdAt: row.created_at,
     }));
     return res.json({ tenants });
@@ -138,6 +148,38 @@ export const createApp = (pool: Pool = defaultPool) => {
     const tenantId = (req as AuthenticatedRequest).tenantId;
     const count = await ingestArticles(pool, tenantId);
     res.json({ ok: true, count });
+  });
+
+  // ── Widget chat (public widget key, CORS-enabled) ───────────────────────────
+
+  const widgetCors = (_req: express.Request, res: express.Response, next: express.NextFunction) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Widget-Key");
+    next();
+  };
+
+  app.options("/widget/chat", widgetCors, (_req, res) => { res.status(204).send(); });
+
+  app.post("/widget/chat", widgetCors, widgetAuth, async (req, res) => {
+    const parsed = chatSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid request payload" });
+    }
+    const tenantId = (req as AuthenticatedRequest).tenantId;
+    const [{ filters, matches }, docChunks] = await Promise.all([
+      retrieveProducts(parsed.data.message, pool, tenantId, 3),
+      retrieveDocuments(parsed.data.message, pool, tenantId, 3),
+    ]);
+    const answer = await generateAnswer(parsed.data.message, matches, docChunks);
+    const response: ChatResponse = {
+      answer,
+      recommendedProducts: matches.map((m) => m.product),
+      citations: matches.map((m) => ({ id: m.product.id, title: m.product.title, score: Number(m.score.toFixed(3)) })),
+      appliedFilters: filters,
+      knowledgeChunks: docChunks.map((d) => ({ id: d.chunk.id, title: d.chunk.title, score: Number(d.score.toFixed(3)) })),
+    };
+    return res.json(response);
   });
 
   // ── Chat (tenant-authenticated) ─────────────────────────────────────────────

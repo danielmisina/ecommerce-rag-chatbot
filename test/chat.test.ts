@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 // ── Hoisted mocks ──────────────────────────────────────────────────────────
 
 const MOCK_TENANT_UUID = "550e8400-e29b-41d4-a716-446655440000";
+const MOCK_WIDGET_KEY = "wk_test-widget-key-1234";
 
 const { mockPool, TEST_TENANT_ID } = vi.hoisted(() => {
   const TEST_TENANT_ID = "test-tenant-id";
@@ -13,13 +14,17 @@ const { mockPool, TEST_TENANT_ID } = vi.hoisted(() => {
     { id: "test-tenant-id-tri-r001", title: "ASICS Gel-Nimbus 26", description: "Premium long-distance running shoe.", category: "run", brand: "ASICS", price: "164.99", currency: "USD", in_stock: true, rating: "4.7", url: null },
   ];
 
-  const mockTenantRow = { id: "550e8400-e29b-41d4-a716-446655440000", name: "acme", created_at: new Date().toISOString() };
+  const mockTenantRow = { id: "550e8400-e29b-41d4-a716-446655440000", name: "acme", widget_key: "wk_test-widget-key-1234", created_at: new Date().toISOString() };
 
   const mockPool = {
-    query: vi.fn().mockImplementation((sql: string) => {
+    query: vi.fn().mockImplementation((sql: string, params?: unknown[]) => {
       const upper = typeof sql === "string" ? sql.trim().toUpperCase() : "";
       if (upper.includes("INTO TENANTS")) {
         return Promise.resolve({ rows: [mockTenantRow] });
+      }
+      if (upper.startsWith("SELECT") && upper.includes("WHERE WIDGET_KEY")) {
+        const key = params?.[0];
+        return Promise.resolve({ rows: key === "wk_test-widget-key-1234" ? [{ id: mockTenantRow.id }] : [] });
       }
       if (upper.startsWith("SELECT") && upper.includes("FROM TENANTS")) {
         return Promise.resolve({ rows: [mockTenantRow] });
@@ -239,6 +244,39 @@ describe("RAG API", () => {
       expect(res.status).toBe(200);
       expect(res.body.ok).toBe(true);
       expect(res.body.count).toBeGreaterThan(0);
+    });
+  });
+
+  // ── Widget chat ─────────────────────────────────────────────────────────────
+
+  describe("Widget chat", () => {
+    it("serves widget.js", async () => {
+      const res = await request(app).get("/widget.js");
+      expect(res.status).toBe(200);
+      expect(res.headers["content-type"]).toContain("application/javascript");
+    });
+
+    it("rejects /widget/chat without widget key", async () => {
+      const res = await request(app).post("/widget/chat").send({ message: "hello" });
+      expect(res.status).toBe(401);
+    });
+
+    it("rejects /widget/chat with invalid widget key", async () => {
+      const res = await request(app)
+        .post("/widget/chat")
+        .set("X-Widget-Key", "wk_invalid")
+        .send({ message: "hello" });
+      expect(res.status).toBe(401);
+    });
+
+    it("returns chat response with valid widget key", async () => {
+      const res = await request(app)
+        .post("/widget/chat")
+        .set("X-Widget-Key", MOCK_WIDGET_KEY)
+        .send({ message: "show me wetsuits" });
+      expect(res.status).toBe(200);
+      expect(res.body.answer).toBeTruthy();
+      expect(Array.isArray(res.body.recommendedProducts)).toBe(true);
     });
   });
 });

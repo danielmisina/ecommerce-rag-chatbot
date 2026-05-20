@@ -6,7 +6,8 @@ DROP TABLE IF EXISTS tenants;
 
 CREATE TABLE tenants (
   id         TEXT        PRIMARY KEY DEFAULT gen_random_uuid()::text,
-  name       TEXT        NOT NULL UNIQUE,
+  name       TEXT        NOT NULL,
+  widget_key TEXT        UNIQUE NOT NULL DEFAULT ('wk_' || gen_random_uuid()::text),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
