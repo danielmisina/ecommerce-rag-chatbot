@@ -279,12 +279,12 @@
       </div>
       <span class="${p.inStock ? "cw-det-instock" : "cw-det-oos"}">${p.inStock ? "In stock" : "Out of stock"}</span>
       ${p.description ? `<div class="cw-det-desc">${renderMd(p.description)}</div>` : ""}
-      ${p.url ? `<a class="cw-det-link" href="${p.url}" target="_blank" rel="noopener noreferrer">View in store →</a>` : ""}
+      ${p.url ? `<a class="cw-det-link" href="${p.url}">View in store →</a>` : ""}
     `;
     messages.style.display = "none";
     form.style.display = "none";
     detail.style.display = "flex";
-    back.style.display = "";
+    back.style.display = "block";
     detail.scrollTop = 0;
   }
 })();
