@@ -35,6 +35,7 @@
       padding: 14px 16px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: #fff; font-weight: 600; font-size: 0.95rem; display: flex; align-items: center; gap: 8px;
     }
+    #cw-header svg { width: 16px; height: 16px; fill: #fff; flex-shrink: 0; }
     #cw-header span { flex: 1; }
     #cw-header button { background: none; border: none; color: rgba(255,255,255,0.8); cursor: pointer; font-size: 1.1rem; padding: 0; }
     #cw-header button:hover { color: #fff; }
