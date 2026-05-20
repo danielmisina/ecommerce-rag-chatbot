@@ -16,14 +16,14 @@
     #cw-root { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; align-items: flex-end; gap: 12px; }
 
     #cw-btn {
-      width: 56px; height: 56px; border-radius: 50%; border: none; cursor: pointer;
+      width: 48px; height: 48px; border-radius: 50%; border: none; cursor: pointer;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       box-shadow: 0 4px 16px rgba(102,126,234,0.5);
       display: flex; align-items: center; justify-content: center;
       transition: transform 0.2s, box-shadow 0.2s;
     }
     #cw-btn:hover { transform: scale(1.08); box-shadow: 0 6px 20px rgba(102,126,234,0.6); }
-    #cw-btn svg { width: 26px; height: 26px; fill: #fff; }
+    #cw-btn svg { width: 20px; height: 20px; fill: #fff; }
 
     #cw-panel {
       width: 340px; height: 480px; background: #fff; border-radius: 16px;
@@ -85,7 +85,7 @@
       </form>
     </div>
     <button id="cw-btn" title="Chat with us">
-      <svg viewBox="0 0 24 24"><path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z"/></svg>
+      <svg viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><path fill="white" d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z"/></svg>
     </button>
   `;
   document.body.appendChild(root);
