@@ -136,6 +136,10 @@
   const send     = document.getElementById("cw-send");
   let   firstMsg = true;
 
+  const HISTORY_KEY = `cw_hist_${widgetKey}`;
+  const HISTORY_TTL = 24 * 60 * 60 * 1000;
+  let   history    = [];
+
   // ── Config (non-blocking) ─────────────────────────────────────────────────
 
   fetch(`${apiBase}/widget/config`, { headers: { "X-Widget-Key": widgetKey } })
@@ -221,6 +225,27 @@
     }
   });
 
+  // ── Restore history ───────────────────────────────────────────────────────
+
+  try {
+    const stored = JSON.parse(localStorage.getItem(HISTORY_KEY) || "null");
+    if (stored && Date.now() - stored.ts < HISTORY_TTL && stored.msgs.length > 0) {
+      messages.innerHTML = "";
+      firstMsg = false;
+      history = stored.msgs;
+      stored.msgs.forEach(m => {
+        if (m.type === "bot") renderBotMsg(m.text, m.products || []);
+        else renderMsg(m.text, m.type);
+      });
+    }
+  } catch (_) {}
+
+  function saveHistory() {
+    try {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify({ ts: Date.now(), msgs: history }));
+    } catch (_) {}
+  }
+
   function renderMd(text) {
     const esc = (s) => s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
     return esc(text)
@@ -230,7 +255,7 @@
       .replace(/\n/g, "<br>");
   }
 
-  function addMsg(text, type) {
+  function renderMsg(text, type) {
     const row = document.createElement("div");
     row.className = `cw-msg-row ${type}`;
     const bubble = document.createElement("div");
@@ -241,13 +266,13 @@
     messages.scrollTop = messages.scrollHeight;
   }
 
-  function addBotMsg(answer, products) {
+  function renderBotMsg(answer, products) {
     const row = document.createElement("div");
     row.className = "cw-msg-row bot";
     const bubble = document.createElement("div");
     bubble.className = "cw-bubble";
     bubble.innerHTML = renderMd(answer);
-    if (products.length > 0) {
+    if (products && products.length > 0) {
       const list = document.createElement("div");
       list.className = "cw-products";
       products.forEach((p) => {
@@ -262,6 +287,18 @@
     row.appendChild(bubble);
     messages.appendChild(row);
     messages.scrollTop = messages.scrollHeight;
+  }
+
+  function addMsg(text, type) {
+    history.push({ type, text });
+    saveHistory();
+    renderMsg(text, type);
+  }
+
+  function addBotMsg(answer, products) {
+    history.push({ type: "bot", text: answer, products: products.length > 0 ? products : undefined });
+    saveHistory();
+    renderBotMsg(answer, products);
   }
 
   function showProductDetail(p) {
