@@ -172,13 +172,22 @@
 
   // ── Events ────────────────────────────────────────────────────────────────
 
+  const OPEN_KEY = `cw_open_${widgetKey}`;
+
+  function setPanelOpen(open) {
+    panel.classList.toggle("open", open);
+    if (open) { input.focus(); localStorage.setItem(OPEN_KEY, "1"); }
+    else localStorage.removeItem(OPEN_KEY);
+  }
+
+  if (localStorage.getItem(OPEN_KEY)) setPanelOpen(true);
+
   document.getElementById("cw-btn").addEventListener("click", () => {
-    panel.classList.toggle("open");
-    if (panel.classList.contains("open")) input.focus();
+    setPanelOpen(!panel.classList.contains("open"));
   });
 
   document.getElementById("cw-close").addEventListener("click", () => {
-    panel.classList.remove("open");
+    setPanelOpen(false);
   });
 
   back.addEventListener("click", () => {
