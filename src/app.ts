@@ -1,6 +1,5 @@
 import express from "express";
 import path from "node:path";
-import fs from "node:fs";
 import { Pool } from "pg";
 import { z } from "zod";
 import { pool as defaultPool } from "./db/client";
@@ -11,7 +10,7 @@ import { createTenantAuth, AuthenticatedRequest } from "./middleware/auth";
 import { adminAuth } from "./middleware/adminAuth";
 import { createWidgetAuth } from "./middleware/widgetAuth";
 import { env } from "./config/env";
-import { ChatResponse, Tenant, WidgetSettings } from "./types";
+import { Article, ChatResponse, Tenant, WidgetSettings } from "./types";
 
 const chatSchema = z.object({
   sessionId: z.string().optional(),
@@ -44,6 +43,10 @@ export const createApp = (pool: Pool = defaultPool) => {
         "DELETE /tenants/:id/products",
         "PATCH /tenants/:id/articles",
         "GET /admin/articles",
+        "POST /admin/articles",
+        "GET /admin/articles/:id",
+        "PUT /admin/articles/:id",
+        "DELETE /admin/articles/:id",
         "POST /admin/ingest/:tenantId",
         "POST /admin/ingest/articles/:tenantId",
         "POST /ingest",
@@ -201,12 +204,63 @@ export const createApp = (pool: Pool = defaultPool) => {
     return res.json({ ok: true });
   });
 
-  app.get("/admin/articles", adminAuth, (_req, res) => {
-    const dir = path.resolve(process.cwd(), "src", "data", "articles");
-    const articles = fs.readdirSync(dir)
-      .filter(f => f.endsWith(".md"))
-      .map(f => f.replace(".md", ""));
-    return res.json({ articles });
+  const articleSchema = z.object({
+    id: z.string().min(1).regex(/^[a-z0-9-]+$/, "ID must be lowercase letters, digits, hyphens"),
+    title: z.string().min(1),
+    content: z.string().min(1),
+  });
+
+  type ArticleRow = { id: string; title: string; content: string; created_at: string };
+  const rowToArticle = (r: ArticleRow): Article => ({
+    id: r.id, title: r.title, content: r.content, createdAt: r.created_at,
+  });
+
+  app.get("/admin/articles", adminAuth, async (_req, res) => {
+    const result = await pool.query<ArticleRow>(
+      `SELECT id, title, created_at FROM articles ORDER BY created_at`
+    );
+    return res.json({ articles: result.rows.map(r => ({ id: r.id, title: r.title, createdAt: r.created_at })) });
+  });
+
+  app.get("/admin/articles/:id", adminAuth, async (req, res) => {
+    const result = await pool.query<ArticleRow>(
+      `SELECT id, title, content, created_at FROM articles WHERE id = $1`, [req.params.id]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: "Not found" });
+    return res.json({ article: rowToArticle(result.rows[0]) });
+  });
+
+  app.post("/admin/articles", adminAuth, async (req, res) => {
+    const parsed = articleSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid article" });
+    const { id, title, content } = parsed.data;
+    try {
+      const r = await pool.query<ArticleRow>(
+        `INSERT INTO articles (id, title, content) VALUES ($1, $2, $3) RETURNING id, title, created_at`,
+        [id, title, content]
+      );
+      return res.status(201).json({ article: { id: r.rows[0].id, title: r.rows[0].title, createdAt: r.rows[0].created_at } });
+    } catch (e: any) {
+      if (e.code === "23505") return res.status(409).json({ error: "ID already exists" });
+      throw e;
+    }
+  });
+
+  app.put("/admin/articles/:id", adminAuth, async (req, res) => {
+    const parsed = z.object({ title: z.string().min(1), content: z.string().min(1) }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid article" });
+    const r = await pool.query(
+      `UPDATE articles SET title = $1, content = $2 WHERE id = $3 RETURNING id`,
+      [parsed.data.title, parsed.data.content, req.params.id]
+    );
+    if (r.rowCount === 0) return res.status(404).json({ error: "Not found" });
+    return res.json({ ok: true });
+  });
+
+  app.delete("/admin/articles/:id", adminAuth, async (req, res) => {
+    const r = await pool.query(`DELETE FROM articles WHERE id = $1`, [req.params.id]);
+    if (r.rowCount === 0) return res.status(404).json({ error: "Not found" });
+    return res.json({ ok: true });
   });
 
   // ── Admin ingest (admin-only) ───────────────────────────────────────────────

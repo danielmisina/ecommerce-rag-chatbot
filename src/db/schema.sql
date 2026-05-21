@@ -2,7 +2,15 @@ CREATE EXTENSION IF NOT EXISTS vector;
 
 DROP TABLE IF EXISTS documents;
 DROP TABLE IF EXISTS products;
+DROP TABLE IF EXISTS articles;
 DROP TABLE IF EXISTS tenants;
+
+CREATE TABLE articles (
+  id         TEXT        PRIMARY KEY,
+  title      TEXT        NOT NULL,
+  content    TEXT        NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
 CREATE TABLE tenants (
   id                  TEXT        PRIMARY KEY DEFAULT gen_random_uuid()::text,

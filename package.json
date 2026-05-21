@@ -10,7 +10,8 @@
     "test": "vitest run",
     "ingest": "tsx src/scripts/ingest.ts",
     "ingest:articles": "tsx src/scripts/ingest-articles.ts",
-    "migrate": "tsx src/db/migrate.ts"
+    "migrate": "tsx src/db/migrate.ts",
+    "seed:articles": "tsx src/db/seed-articles.ts"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

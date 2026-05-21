@@ -16,6 +16,10 @@ const { mockPool, TEST_TENANT_ID } = vi.hoisted(() => {
 
   const mockTenantRow = { id: "550e8400-e29b-41d4-a716-446655440000", name: "acme", widget_key: "wk_test-widget-key-1234", created_at: new Date().toISOString() };
 
+  const mockArticleRows = [
+    { id: "mock-article", title: "Mock Article", content: "# Mock Article\n\nThis is a mock article for testing." },
+  ];
+
   const mockPool = {
     query: vi.fn().mockImplementation((sql: string, params?: unknown[]) => {
       const upper = typeof sql === "string" ? sql.trim().toUpperCase() : "";
@@ -34,6 +38,9 @@ const { mockPool, TEST_TENANT_ID } = vi.hoisted(() => {
       }
       if (upper.startsWith("SELECT") && upper.includes("DOCUMENTS")) {
         return Promise.resolve({ rows: [] });
+      }
+      if (upper.startsWith("SELECT") && upper.includes("ARTICLES")) {
+        return Promise.resolve({ rows: mockArticleRows });
       }
       if (upper.startsWith("SELECT")) {
         return Promise.resolve({ rows: mockRows });

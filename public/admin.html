@@ -211,6 +211,28 @@
       .im-btn-row { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
       .im-btn { padding: 7px 14px; font-size: 0.82rem; }
 
+      /* ── Article modal ── */
+
+      #article-modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.45);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+      }
+      #article-modal.open { display: flex; }
+
+      #am-content {
+        width: 100%; font-family: monospace; font-size: 0.8rem;
+        border: 1px solid #d1d5db; border-radius: 8px; padding: 10px;
+        resize: vertical; min-height: 200px;
+      }
+      #am-content:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.1); }
+
+      #article-tbody tr:hover td { background: #f9fafb; }
+
       /* ── Buttons ── */
 
       button {
@@ -373,6 +395,51 @@
           <button id="ingest-all-articles-btn">↺ Re-ingest Articles — All Tenants</button>
         </div>
         <div id="ingest-global-msg" class="msg"></div>
+      </div>
+
+      <!-- Articles -->
+      <div class="panel">
+        <h2>Articles</h2>
+        <div style="margin-bottom:12px">
+          <button id="new-article-btn" style="padding:7px 14px;font-size:0.85rem">+ New Article</button>
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:0.875rem">
+          <thead>
+            <tr style="border-bottom:2px solid #e5e7eb;text-align:left">
+              <th style="padding:6px 8px;font-weight:600;color:#6b7280;width:45%">Title</th>
+              <th style="padding:6px 8px;font-weight:600;color:#6b7280;width:40%">ID</th>
+              <th style="padding:6px 8px;width:15%"></th>
+            </tr>
+          </thead>
+          <tbody id="article-tbody">
+            <tr><td colspan="3" style="color:#9ca3af;padding:10px 8px">Loading…</td></tr>
+          </tbody>
+        </table>
+        <div id="article-list-msg" class="msg"></div>
+      </div>
+    </div>
+
+    <!-- ── Article editor modal ─────────────────────────────────────────────── -->
+    <div id="article-modal">
+      <div class="im-card" style="width:680px;max-height:92vh;overflow-y:auto">
+        <h2 id="am-heading">New Article</h2>
+        <div class="sm-field">
+          <label>ID / slug <small style="color:#9ca3af;font-weight:400">(lowercase letters, digits, hyphens — cannot change after creation)</small></label>
+          <input type="text" id="am-id" placeholder="my-article-slug" style="width:100%;font-family:monospace" />
+        </div>
+        <div class="sm-field">
+          <label>Title</label>
+          <input type="text" id="am-title" placeholder="Article title" style="width:100%" />
+        </div>
+        <div class="sm-field">
+          <label>Content (Markdown)</label>
+          <textarea id="am-content" rows="18" placeholder="# Article Title&#10;&#10;Content goes here…"></textarea>
+        </div>
+        <div id="am-msg" class="msg"></div>
+        <div class="sm-actions">
+          <button class="btn-secondary" id="am-cancel">Cancel</button>
+          <button id="am-save">Save</button>
+        </div>
       </div>
     </div>
 
@@ -616,7 +683,7 @@
       const showDashboard = async () => {
         document.getElementById("auth-section").style.display = "none";
         document.getElementById("dashboard-section").style.display = "block";
-        await loadTenants();
+        await Promise.all([loadTenants(), loadArticles()]);
       };
 
       const showAuthGate = async () => {
@@ -791,6 +858,133 @@
       });
       smModal.addEventListener("click", (e) => { if (e.target === smModal) closeStyleModal(); });
 
+      // ── Article management ───────────────────────────────────────────────
+
+      let editingArticleId = null;
+      let articles = [];
+
+      const loadArticles = async () => {
+        hideMsg("article-list-msg");
+        try {
+          const res = await fetch("/admin/articles", { headers: apiHeaders() });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          articles = data.articles || [];
+          renderArticleList();
+        } catch (e) {
+          showMsg("article-list-msg", "Failed to load articles: " + e.message, "error");
+        }
+      };
+
+      const renderArticleList = () => {
+        const tbody = document.getElementById("article-tbody");
+        if (articles.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="3" style="color:#9ca3af;padding:10px 8px">No articles yet.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = articles.map(a => `
+          <tr>
+            <td style="padding:8px 8px;border-bottom:1px solid #f3f4f6">${escHtml(a.title)}</td>
+            <td style="padding:8px 8px;border-bottom:1px solid #f3f4f6;font-family:monospace;font-size:0.8rem;color:#6b7280">${escHtml(a.id)}</td>
+            <td style="padding:8px 8px;border-bottom:1px solid #f3f4f6;text-align:right;white-space:nowrap">
+              <button class="btn-secondary art-edit" style="padding:5px 10px;font-size:0.78rem" data-id="${escHtml(a.id)}">Edit</button>
+              <button class="btn-danger art-del" style="padding:5px 10px;font-size:0.78rem;margin-left:4px" data-id="${escHtml(a.id)}" data-title="${escHtml(a.title)}">Delete</button>
+            </td>
+          </tr>
+        `).join("");
+        tbody.querySelectorAll(".art-edit").forEach(btn => {
+          btn.addEventListener("click", () => openArticleModal(articles.find(a => a.id === btn.dataset.id)));
+        });
+        tbody.querySelectorAll(".art-del").forEach(btn => {
+          btn.addEventListener("click", () => deleteArticle(btn.dataset.id, btn.dataset.title));
+        });
+      };
+
+      const artModal = document.getElementById("article-modal");
+
+      const openArticleModal = async (article) => {
+        editingArticleId = article ? article.id : null;
+        hideMsg("am-msg");
+        document.getElementById("am-heading").textContent = article ? "Edit Article" : "New Article";
+        document.getElementById("am-id").value = "";
+        document.getElementById("am-id").disabled = !!article;
+        document.getElementById("am-title").value = article ? article.title : "";
+        document.getElementById("am-content").value = "";
+        artModal.classList.add("open");
+        if (article) {
+          try {
+            const res = await fetch(`/admin/articles/${encodeURIComponent(article.id)}`, { headers: apiHeaders() });
+            const data = await res.json();
+            document.getElementById("am-content").value = data.article.content || "";
+          } catch {
+            showMsg("am-msg", "Failed to load article content.", "error");
+          }
+        }
+        if (!article) document.getElementById("am-id").focus();
+        else document.getElementById("am-title").focus();
+      };
+
+      const closeArticleModal = () => {
+        artModal.classList.remove("open");
+        editingArticleId = null;
+      };
+
+      document.getElementById("am-title").addEventListener("input", () => {
+        if (editingArticleId !== null) return;
+        const slug = document.getElementById("am-title").value
+          .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+        document.getElementById("am-id").value = slug;
+      });
+
+      document.getElementById("am-save").addEventListener("click", async () => {
+        hideMsg("am-msg");
+        const id = document.getElementById("am-id").value.trim();
+        const title = document.getElementById("am-title").value.trim();
+        const content = document.getElementById("am-content").value.trim();
+        if (!title || !content) { showMsg("am-msg", "Title and content are required.", "error"); return; }
+        if (!editingArticleId && !id) { showMsg("am-msg", "ID is required.", "error"); return; }
+        const saveBtn = document.getElementById("am-save");
+        saveBtn.disabled = true;
+        try {
+          let res;
+          if (editingArticleId) {
+            res = await fetch(`/admin/articles/${encodeURIComponent(editingArticleId)}`, {
+              method: "PUT", headers: apiHeaders(), body: JSON.stringify({ title, content })
+            });
+          } else {
+            res = await fetch("/admin/articles", {
+              method: "POST", headers: apiHeaders(), body: JSON.stringify({ id, title, content })
+            });
+          }
+          if (!res.ok) {
+            const e = await res.json().catch(() => ({}));
+            throw new Error(e.error || `HTTP ${res.status}`);
+          }
+          closeArticleModal();
+          await loadArticles();
+        } catch (e) {
+          showMsg("am-msg", "Error: " + e.message, "error");
+        } finally { saveBtn.disabled = false; }
+      });
+
+      const deleteArticle = async (id, title) => {
+        if (!confirm(`Delete article "${title}"?\n\nDocument chunks will be removed on next re-ingest.`)) return;
+        hideMsg("article-list-msg");
+        try {
+          const res = await fetch(`/admin/articles/${encodeURIComponent(id)}`, {
+            method: "DELETE", headers: apiHeaders()
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          await loadArticles();
+        } catch (e) {
+          showMsg("article-list-msg", "Delete failed: " + e.message, "error");
+        }
+      };
+
+      document.getElementById("new-article-btn").addEventListener("click", () => openArticleModal(null));
+      document.getElementById("am-cancel").addEventListener("click", closeArticleModal);
+      artModal.addEventListener("click", (e) => { if (e.target === artModal) closeArticleModal(); });
+
       // ── Ingest modal ─────────────────────────────────────────────────────
 
       let ingestModalTenantId = null;
@@ -831,9 +1025,9 @@
           } else {
             listEl.innerHTML = availableArticles.map(a => `
               <label class="im-article-row">
-                <input type="checkbox" value="${escHtml(a)}"
-                  ${enabled === null || enabled.includes(a) ? "checked" : ""}>
-                ${escHtml(a)}
+                <input type="checkbox" value="${escHtml(a.id)}"
+                  ${enabled === null || enabled.includes(a.id) ? "checked" : ""}>
+                ${escHtml(a.title)}
               </label>
             `).join("");
           }

@@ -1,13 +1,9 @@
-import fs from "node:fs";
-import path from "node:path";
 import { Pool } from "pg";
 import productsJson from "../data/products.json";
 import { Product } from "../types";
 import { getEmbedding } from "./embedder";
 import { chunkMarkdown } from "./chunker";
 import { env } from "../config/env";
-
-const ARTICLES_DIR = path.resolve(__dirname, "../data/articles");
 
 type ProductRow = {
   id: string;
@@ -96,24 +92,23 @@ export const ingestArticles = async (pool: Pool, tenantId: string): Promise<numb
   const { rows: tenantRows } = await pool.query<{ enabled_articles: string[] | null }>(
     `SELECT enabled_articles FROM tenants WHERE id = $1`, [tenantId]
   );
-  const enabled = tenantRows[0]?.enabled_articles ?? null; // null = all articles
+  const enabled = tenantRows[0]?.enabled_articles ?? null;
 
-  const files = fs.readdirSync(ARTICLES_DIR)
-    .filter((f) => f.endsWith(".md"))
-    .filter((f) => enabled === null || enabled.includes(f.replace(".md", "")));
+  const query = enabled === null
+    ? `SELECT id, title, content FROM articles ORDER BY created_at`
+    : `SELECT id, title, content FROM articles WHERE id = ANY($1) ORDER BY created_at`;
+  const { rows: articleRows } = await pool.query<{ id: string; title: string; content: string }>(
+    query, enabled === null ? [] : [enabled]
+  );
+
   let totalChunks = 0;
 
-  for (const file of files) {
-    const sourceId = file.replace(".md", "");
-    const raw = fs.readFileSync(path.join(ARTICLES_DIR, file), "utf-8");
-
-    const titleMatch = raw.match(/^#\s+(.+)/m);
-    const title = titleMatch ? titleMatch[1].trim() : sourceId;
-    const tags = sourceId.split("-").filter((t) => t.length > 2);
-    const chunks = chunkMarkdown(raw);
+  for (const article of articleRows) {
+    const tags = article.id.split("-").filter((t) => t.length > 2);
+    const chunks = chunkMarkdown(article.content);
 
     for (const chunk of chunks) {
-      const id = `${tenantId}-${sourceId}-${chunk.index}`;
+      const id = `${tenantId}-${article.id}-${chunk.index}`;
       const embedding = await getEmbedding(chunk.body);
 
       await pool.query(
@@ -128,8 +123,8 @@ export const ingestArticles = async (pool: Pool, tenantId: string): Promise<numb
         [
           id,
           tenantId,
-          sourceId,
-          title,
+          article.id,
+          article.title,
           chunk.index,
           chunk.body,
           tags,

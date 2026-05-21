@@ -51,6 +51,13 @@ export type RetrievedProduct = {
   score: number;
 };
 
+export type Article = {
+  id: string;
+  title: string;
+  content?: string;
+  createdAt: string;
+};
+
 export type ChatRequest = {
   sessionId?: string;
   message: string;
