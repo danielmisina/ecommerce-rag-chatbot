@@ -49,6 +49,9 @@
     #cw-subtitle { font-size: 0.75rem; color: #6b7280; margin-top: 1px; }
     #cw-back { display: none; background: none; border: none; cursor: pointer; color: #6b7280; font-size: 1rem; padding: 0 4px 0 0; line-height: 1; }
     #cw-back:hover { color: #1f2937; }
+    #cw-new { background: none; border: none; cursor: pointer; color: #9ca3af; padding: 0; line-height: 1; display: flex; }
+    #cw-new:hover { color: #1f2937; }
+    #cw-new svg { width: 15px; height: 15px; }
     #cw-close { background: none; border: none; cursor: pointer; color: #9ca3af; font-size: 1.1rem; padding: 0; line-height: 1; }
     #cw-close:hover { color: #1f2937; }
 
@@ -108,6 +111,7 @@
           <div id="cw-title">🛍️ Product Assistant</div>
           <div id="cw-subtitle">Ask about products, prices, or features</div>
         </div>
+        <button id="cw-new" title="New conversation"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
         <button id="cw-close" title="Close">✕</button>
       </div>
       <div id="cw-messages">
@@ -188,6 +192,18 @@
 
   document.getElementById("cw-close").addEventListener("click", () => {
     setPanelOpen(false);
+  });
+
+  document.getElementById("cw-new").addEventListener("click", () => {
+    history = [];
+    localStorage.removeItem(HISTORY_KEY);
+    firstMsg = true;
+    detail.style.display = "none";
+    back.style.display = "none";
+    messages.style.display = "flex";
+    form.style.display = "flex";
+    messages.innerHTML = '<div class="cw-empty">Start a conversation</div>';
+    input.focus();
   });
 
   back.addEventListener("click", () => {
