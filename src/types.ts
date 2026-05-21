@@ -12,6 +12,8 @@ export type Tenant = {
   name: string;
   widgetKey: string;
   widgetSettings: WidgetSettings;
+  tenantProductData?: Product[] | null;
+  enabledArticles?: string[] | null;
   createdAt: string;
 };
 

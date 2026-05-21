@@ -1,5 +1,6 @@
 import express from "express";
 import path from "node:path";
+import fs from "node:fs";
 import { Pool } from "pg";
 import { z } from "zod";
 import { pool as defaultPool } from "./db/client";
@@ -38,6 +39,11 @@ export const createApp = (pool: Pool = defaultPool) => {
         "POST /tenants",
         "GET /tenants",
         "DELETE /tenants/:id",
+        "PATCH /tenants/:id/settings",
+        "PUT /tenants/:id/products",
+        "DELETE /tenants/:id/products",
+        "PATCH /tenants/:id/articles",
+        "GET /admin/articles",
         "POST /admin/ingest/:tenantId",
         "POST /admin/ingest/articles/:tenantId",
         "POST /ingest",
@@ -47,7 +53,6 @@ export const createApp = (pool: Pool = defaultPool) => {
         "GET /widget/products",
         "GET /widget/config",
         "GET /widget.js",
-        "PATCH /tenants/:id/settings",
         "GET /demo-shop",
         "GET /chat-ui",
         "GET /admin-ui"
@@ -84,36 +89,39 @@ export const createApp = (pool: Pool = defaultPool) => {
 
   // ── Tenant management (admin-only) ──────────────────────────────────────────
 
+  type TenantRow = {
+    id: string; name: string; widget_key: string;
+    widget_settings: Record<string, unknown>;
+    tenant_product_data: unknown[] | null;
+    enabled_articles: string[] | null;
+    created_at: string;
+  };
+  const rowToTenant = (row: TenantRow): Tenant => ({
+    id: row.id, name: row.name, widgetKey: row.widget_key,
+    widgetSettings: row.widget_settings ?? {},
+    tenantProductData: row.tenant_product_data ?? null,
+    enabledArticles: row.enabled_articles ?? null,
+    createdAt: row.created_at,
+  });
+
   app.post("/tenants", adminAuth, async (req, res) => {
     const parsed = createTenantSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({ error: "Invalid request payload" });
-    }
-
-    const result = await pool.query<{ id: string; name: string; widget_key: string; widget_settings: Record<string, unknown>; created_at: string }>(
+    if (!parsed.success) return res.status(400).json({ error: "Invalid request payload" });
+    const result = await pool.query<TenantRow>(
       `INSERT INTO tenants (id, name) VALUES ($1, $2)
        ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name
-       RETURNING id, name, widget_key, widget_settings, created_at`,
+       RETURNING id, name, widget_key, widget_settings, tenant_product_data, enabled_articles, created_at`,
       [parsed.data.id, parsed.data.name]
     );
-
-    const row = result.rows[0];
-    const tenant: Tenant = { id: row.id, name: row.name, widgetKey: row.widget_key, widgetSettings: row.widget_settings ?? {}, createdAt: row.created_at };
-    return res.status(201).json({ tenant });
+    return res.status(201).json({ tenant: rowToTenant(result.rows[0]) });
   });
 
   app.get("/tenants", adminAuth, async (_req, res) => {
-    const result = await pool.query<{ id: string; name: string; widget_key: string; widget_settings: Record<string, unknown>; created_at: string }>(
-      `SELECT id, name, widget_key, widget_settings, created_at FROM tenants ORDER BY created_at`
+    const result = await pool.query<TenantRow>(
+      `SELECT id, name, widget_key, widget_settings, tenant_product_data, enabled_articles, created_at
+       FROM tenants ORDER BY created_at`
     );
-    const tenants: Tenant[] = result.rows.map((row) => ({
-      id: row.id,
-      name: row.name,
-      widgetKey: row.widget_key,
-      widgetSettings: row.widget_settings ?? {},
-      createdAt: row.created_at,
-    }));
-    return res.json({ tenants });
+    return res.json({ tenants: result.rows.map(rowToTenant) });
   });
 
   app.delete("/tenants/:id", adminAuth, async (req, res) => {
@@ -145,6 +153,60 @@ export const createApp = (pool: Pool = defaultPool) => {
     );
     if (result.rowCount === 0) return res.status(404).json({ error: "Tenant not found" });
     return res.json({ settings: result.rows[0].widget_settings });
+  });
+
+  // ── Per-tenant content management (admin-only) ─────────────────────────────
+
+  const productItemSchema = z.object({
+    id: z.string().min(1),
+    title: z.string().min(1),
+    description: z.string(),
+    category: z.string().min(1),
+    brand: z.string().min(1),
+    price: z.number().nonnegative(),
+    currency: z.string().default("USD"),
+    inStock: z.boolean(),
+    rating: z.number().min(0).max(5),
+    url: z.string().optional(),
+  });
+
+  app.put("/tenants/:id/products", adminAuth, async (req, res) => {
+    const parsed = z.array(productItemSchema).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid product array" });
+    const r = await pool.query(
+      `UPDATE tenants SET tenant_product_data = $1 WHERE id = $2 RETURNING id`,
+      [JSON.stringify(parsed.data), req.params.id]
+    );
+    if (r.rowCount === 0) return res.status(404).json({ error: "Tenant not found" });
+    return res.json({ ok: true });
+  });
+
+  app.delete("/tenants/:id/products", adminAuth, async (req, res) => {
+    const r = await pool.query(
+      `UPDATE tenants SET tenant_product_data = NULL WHERE id = $1 RETURNING id`,
+      [req.params.id]
+    );
+    if (r.rowCount === 0) return res.status(404).json({ error: "Tenant not found" });
+    return res.json({ ok: true });
+  });
+
+  app.patch("/tenants/:id/articles", adminAuth, async (req, res) => {
+    const parsed = z.object({ enabled: z.array(z.string()).nullable() }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid payload" });
+    const r = await pool.query(
+      `UPDATE tenants SET enabled_articles = $1 WHERE id = $2 RETURNING id`,
+      [parsed.data.enabled, req.params.id]
+    );
+    if (r.rowCount === 0) return res.status(404).json({ error: "Tenant not found" });
+    return res.json({ ok: true });
+  });
+
+  app.get("/admin/articles", adminAuth, (_req, res) => {
+    const dir = path.resolve(process.cwd(), "src", "data", "articles");
+    const articles = fs.readdirSync(dir)
+      .filter(f => f.endsWith(".md"))
+      .map(f => f.replace(".md", ""));
+    return res.json({ articles });
   });
 
   // ── Admin ingest (admin-only) ───────────────────────────────────────────────

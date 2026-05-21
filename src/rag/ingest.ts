@@ -36,12 +36,11 @@ const rowToProduct = (row: ProductRow): Product => ({
 });
 
 export const ingestProducts = async (pool: Pool, tenantId: string): Promise<number> => {
-  const products = productsJson as Product[];
-
-  const { rows } = await pool.query<{ widget_key: string }>(
-    `SELECT widget_key FROM tenants WHERE id = $1`, [tenantId]
+  const { rows } = await pool.query<{ widget_key: string; tenant_product_data: Product[] | null }>(
+    `SELECT widget_key, tenant_product_data FROM tenants WHERE id = $1`, [tenantId]
   );
   const widgetKey = rows[0]?.widget_key ?? "";
+  const products: Product[] = rows[0]?.tenant_product_data ?? (productsJson as Product[]);
 
   for (const product of products) {
     const id = `${tenantId}-${product.id}`;
@@ -94,7 +93,14 @@ export const getAllProducts = async (pool: Pool, tenantId: string): Promise<Prod
 };
 
 export const ingestArticles = async (pool: Pool, tenantId: string): Promise<number> => {
-  const files = fs.readdirSync(ARTICLES_DIR).filter((f) => f.endsWith(".md"));
+  const { rows: tenantRows } = await pool.query<{ enabled_articles: string[] | null }>(
+    `SELECT enabled_articles FROM tenants WHERE id = $1`, [tenantId]
+  );
+  const enabled = tenantRows[0]?.enabled_articles ?? null; // null = all articles
+
+  const files = fs.readdirSync(ARTICLES_DIR)
+    .filter((f) => f.endsWith(".md"))
+    .filter((f) => enabled === null || enabled.includes(f.replace(".md", "")));
   let totalChunks = 0;
 
   for (const file of files) {
